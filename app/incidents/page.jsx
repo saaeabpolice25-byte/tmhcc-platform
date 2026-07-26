@@ -88,8 +88,7 @@ export default function IncidentsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <header className="mb-6 border-b pb-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-800">ระบบเปิดเหตุฉุกเฉิน (n8n Automation)</h1>
-        <p className="text-sm text-slate-500">ส่งข้อมูลผ่าน Webhook ไปยัง n8n เพื่อบันทึกฐานข้อมูลและแจ้งเตือน LINE อัตโนมัติ</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800">ระบบเปิดเหตุฉุกเฉิน</h1>
       </header>
 
       {successMsg && (
@@ -192,7 +191,7 @@ export default function IncidentsPage() {
           disabled={loading}
           className="w-full py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition duration-200 shadow-md disabled:bg-red-300"
         >
-          {loading ? "กำลังส่งข้อมูลเข้า n8n Workflow..." : "+ เปิดเหตุฉุกเฉินผ่าน n8n"}
+          {loading ? "กำลังส่งข้อมูล..." : "+ เปิดเหตุฉุกเฉิน"}
         </button>
       </form>
     </div>
