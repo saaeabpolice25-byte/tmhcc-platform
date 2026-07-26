@@ -7,7 +7,7 @@ import { db } from "@/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import TaskTable from "@/components/TaskTable";
 import { createConditionalTask } from "@/services/sopService";
-import { closeIncident } from "@/services/aarService";
+import { closeIncident, formatDateTime } from "@/services/aarService";
 import { sendTaskNotification } from "@/services/notifyService";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
@@ -90,6 +90,10 @@ export default function IncidentDetailPage() {
         <header className="mb-6 border-b pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800">เหตุการณ์ {incident.id}</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              แจ้งเหตุเมื่อ {formatDateTime(incident.createdAt)}
+              {incident.patientName ? ` · ผู้ป่วย: ${incident.patientName}` : ""}
+            </p>
             <p className="text-sm text-slate-500">
               {incident.title} · {incident.village}
               {incident.location && incident.location.lat && (

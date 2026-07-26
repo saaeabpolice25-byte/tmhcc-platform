@@ -6,28 +6,54 @@ import { createIncident } from "@/services/incidentService";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
+const incidentTypes = [
+  { id: "SUICIDE_RISK", label: "เสี่ยงฆ่าตัวตาย", defaultTitle: "ผู้มีภาวะเสี่ยงฆ่าตัวตาย" },
+  { id: "CRAZED", label: "คลุ้มคลั่ง", defaultTitle: "ผู้ป่วยคลุ้มคลั่งอาละวาด" },
+  { id: "DRUGS", label: "ยาเสพติด", defaultTitle: "ปัญหาเกี่ยวกับยาเสพติด" },
+  { id: "MISSING_MEDS", label: "ขาดยา", defaultTitle: "ผู้ป่วยจิตเวชขาดยา" },
+  { id: "RELAPSE", label: "อาการกำเริบ", defaultTitle: "อาการทางจิตเวชกำเริบ" },
+];
+
+// ฟอร์มนี้ตั้งใจให้เรียงลำดับฟิลด์เหมือนกับฟอร์ม LIFF (app/liff/report) ทุกประการ
+// ประเภท -> ชื่อผู้ป่วย -> รายละเอียด -> ระดับ -> หมู่บ้าน -> แนบตำแหน่ง -> ส่ง
 export default function IncidentsPage() {
   const user = useRequireAuth();
   const router = useRouter();
   const [selectedType, setSelectedType] = useState("SUICIDE_RISK");
+  const [patientName, setPatientName] = useState("");
   const [title, setTitle] = useState("ผู้มีภาวะเสี่ยงฆ่าตัวตาย");
   const [level, setLevel] = useState("RED");
   const [village, setVillage] = useState("หมู่ 3");
+  const [location, setLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const incidentTypes = [
-    { id: "SUICIDE_RISK", label: "เสี่ยงฆ่าตัวตาย", defaultTitle: "ผู้มีภาวะเสี่ยงฆ่าตัวตาย" },
-    { id: "CRAZED", label: "คลุ้มคลั่ง", defaultTitle: "ผู้ป่วยคลุ้มคลั่งอาละวาด" },
-    { id: "DRUGS", label: "ยาเสพติด", defaultTitle: "ปัญหาเกี่ยวกับยาเสพติด" },
-    { id: "MISSING_MEDS", label: "ขาดยา", defaultTitle: "ผู้ป่วยจิตเวชขาดยา" },
-    { id: "RELAPSE", label: "อาการกำเริบ", defaultTitle: "อาการทางจิตเวชกำเริบ" },
-  ];
-
   const handleTypeChange = (typeObj) => {
     setSelectedType(typeObj.id);
     setTitle(typeObj.defaultTitle);
+  };
+
+  const handleAttachLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง");
+      return;
+    }
+    setLocating(true);
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+      },
+      (error) => {
+        setLocationError("ดึงตำแหน่งไม่สำเร็จ: " + error.message + " (ต้องอนุญาตสิทธิ์เข้าถึงตำแหน่งก่อน)");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -36,12 +62,13 @@ export default function IncidentsPage() {
     setSuccessMsg("");
     setErrorMsg("");
 
-        // ภายในฟังก์ชัน handleSubmit เปลี่ยนไปเรียก:
     const result = await createIncident({
       type: selectedType,
+      patientName,
       title,
       level,
       village,
+      location,
       createdBy: "ผู้ใหญ่บ้าน",
     });
 
@@ -99,6 +126,17 @@ export default function IncidentsPage() {
         </div>
 
         <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">ชื่อผู้ป่วย</label>
+          <input
+            type="text"
+            value={patientName}
+            onChange={(e) => setPatientName(e.target.value)}
+            placeholder="เช่น นาย ก. (หรือไม่ระบุก็ได้)"
+            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1">หัวข้อ/รายละเอียดเคส</label>
           <input
             type="text"
@@ -133,6 +171,20 @@ export default function IncidentsPage() {
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={handleAttachLocation}
+            disabled={locating}
+            className={`w-full py-2.5 rounded-lg text-sm font-bold border transition ${
+              location ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-slate-50 border-slate-300 text-slate-700"
+            }`}
+          >
+            {locating ? "กำลังดึงตำแหน่ง..." : location ? "✓ แนบตำแหน่งแล้ว (กดซ้ำเพื่ออัปเดต)" : "📍 แนบตำแหน่งปัจจุบัน"}
+          </button>
+          {locationError && <p className="text-xs text-red-600 mt-1">{locationError}</p>}
         </div>
 
         <button

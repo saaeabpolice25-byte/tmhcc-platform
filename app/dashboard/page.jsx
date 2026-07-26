@@ -6,6 +6,7 @@ import { db } from "@/firebase/config";
 import { collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
+import { formatDateTime } from "@/services/aarService";
 
 export default function DashboardPage() {
   const user = useRequireAuth();
@@ -128,6 +129,8 @@ export default function DashboardPage() {
               <thead>
                 <tr className="border-b bg-slate-100/60 text-xs font-semibold text-slate-600 uppercase">
                   <th className="p-3 sm:p-4">รหัสเคส</th>
+                  <th className="p-3 sm:p-4">วันที่/เวลาแจ้งเหตุ</th>
+                  <th className="p-3 sm:p-4">ผู้ป่วย</th>
                   <th className="p-3 sm:p-4">ประเภท</th>
                   <th className="p-3 sm:p-4">ระดับ</th>
                   <th className="p-3 sm:p-4">กำลังดำเนินการที่</th>
@@ -138,7 +141,7 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {incidents.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-6 text-center text-slate-400">ยังไม่มีประวัติเหตุการณ์ในระบบ</td>
+                    <td colSpan="8" className="p-6 text-center text-slate-400">ยังไม่มีประวัติเหตุการณ์ในระบบ</td>
                   </tr>
                 ) : (
                   incidents.map((inc) => {
@@ -148,6 +151,8 @@ export default function DashboardPage() {
                         <td className="p-4 font-medium text-blue-600">
                           <Link href={`/incidents/${inc.docId}`} className="hover:underline">{inc.id}</Link>
                         </td>
+                        <td className="p-3 sm:p-4 text-slate-500 whitespace-nowrap">{formatDateTime(inc.createdAt)}</td>
+                        <td className="p-3 sm:p-4">{inc.patientName || "-"}</td>
                         <td className="p-3 sm:p-4">{inc.type}</td>
                         <td className="p-3 sm:p-4">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${

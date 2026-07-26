@@ -8,7 +8,7 @@ import { createIncident } from "@/services/incidentService";
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { type, title, level, village, location, lineUserId, lineDisplayName } = body;
+    const { type, patientName, title, level, village, location, lineUserId, lineDisplayName } = body;
 
     if (!type || !title || !level) {
       return NextResponse.json({ success: false, error: "ข้อมูลไม่ครบ" }, { status: 400 });
@@ -20,6 +20,7 @@ export async function POST(request) {
     const result = await createIncident(
       {
         type,
+        patientName,
         title,
         level,
         village,

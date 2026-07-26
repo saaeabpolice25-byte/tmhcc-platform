@@ -27,7 +27,7 @@ const LEVEL_EMOJI = { RED: "🔴", ORANGE: "🟠", YELLOW: "🟡" };
 const LEVEL_LABEL = { RED: "วิกฤต", ORANGE: "เร่งด่วน", YELLOW: "ติดตามอาการ" };
 
 const buildFlexMessage = (incident) => {
-  const { incidentCode, type, level, village, title, taskId, unitCode, unit, task, location } = incident;
+  const { incidentCode, type, level, village, title, patientName, taskId, unitCode, unit, task, location } = incident;
   const thaiType = typeLabels[type] || type;
   const color = LEVEL_COLOR[level] || LEVEL_COLOR.YELLOW;
   const emoji = LEVEL_EMOJI[level] || "🟡";
@@ -87,6 +87,7 @@ const buildFlexMessage = (incident) => {
         spacing: "sm",
         contents: [
           { type: "text", text: `ประเภท: ${thaiType}`, size: "sm", wrap: true, color: "#475569" },
+          ...(patientName ? [{ type: "text", text: `ผู้ป่วย: ${patientName}`, size: "sm", wrap: true, color: "#475569" }] : []),
           { type: "text", text: `พื้นที่: ${village}`, size: "sm", wrap: true, color: "#475569" },
           { type: "text", text: `รายละเอียด: ${title}`, size: "sm", wrap: true, color: "#475569" },
           { type: "separator", margin: "md" },

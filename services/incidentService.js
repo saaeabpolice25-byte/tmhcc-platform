@@ -36,6 +36,7 @@ export const createIncident = async (incidentData, baseUrl = "") => {
       id: newId,
       type: incidentData.type,
       title: incidentData.title,
+      patientName: incidentData.patientName || "",
       level: incidentData.level || "RED",
       village: incidentData.village || "หมู่ 3",
       location: incidentData.location || null, // { lat, lng } ถ้าแนบตำแหน่งมาด้วย (เช่นจากฟอร์ม LIFF)

@@ -7,9 +7,14 @@ const toDate = (value) => {
   return typeof value.toDate === "function" ? value.toDate() : new Date(value);
 };
 
-const formatTime = (value) => {
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// รูปแบบ วัน/เดือน/ปี(ค.ศ.) ชั่วโมง:นาที เช่น 26/07/2026 14:02 — เก็บเป็น log ให้ตรวจสอบย้อนหลังได้
+// export ไว้ให้หน้าอื่น (รายละเอียดเหตุการณ์, dashboard) ใช้รูปแบบเดียวกัน
+export const formatDateTime = (value) => {
   const d = toDate(value);
-  return d ? d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "";
+  if (!d) return "";
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 };
 
 const statusLabel = (status) => {
@@ -26,7 +31,7 @@ export const generateAAR = async (incidentCode, incidentCreatedAt) => {
   const events = [];
   const createdDate = toDate(incidentCreatedAt);
   if (createdDate) {
-    events.push({ raw: createdDate, time: formatTime(incidentCreatedAt), label: "รับแจ้งเหตุ / เปิดเหตุการณ์", actor: null, unitCode: null, taskId: null });
+    events.push({ raw: createdDate, time: formatDateTime(incidentCreatedAt), label: "รับแจ้งเหตุ / เปิดเหตุการณ์", actor: null, unitCode: null, taskId: null });
   }
 
   snapshot.forEach((docSnap) => {
@@ -36,7 +41,7 @@ export const generateAAR = async (incidentCode, incidentCreatedAt) => {
       if (!rawDate) return;
       events.push({
         raw: rawDate,
-        time: formatTime(h.timestamp),
+        time: formatDateTime(h.timestamp),
         label: `${t.unit} ${statusLabel(h.status)}: ${t.task}`,
         actor: h.actorDisplayName || null,
         unitCode: t.unitCode || null,
@@ -49,7 +54,7 @@ export const generateAAR = async (incidentCode, incidentCreatedAt) => {
 
   const now = new Date();
   const timeline = events.map((e) => ({ time: e.time, label: e.label, actor: e.actor, unitCode: e.unitCode, taskId: e.taskId }));
-  timeline.push({ time: formatTime(now), label: "ปิดเหตุการณ์", actor: null, unitCode: null, taskId: null });
+  timeline.push({ time: formatDateTime(now), label: "ปิดเหตุการณ์", actor: null, unitCode: null, taskId: null });
 
   const summaryText = timeline
     .map((e) => `${e.time} ${e.label}${e.actor ? ` (${e.actor})` : ""}`)
