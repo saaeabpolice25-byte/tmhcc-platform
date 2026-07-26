@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, deleteDoc, doc } from "firebase/firestore";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function UsersPage() {
@@ -14,20 +14,21 @@ export default function UsersPage() {
   const [village, setVillage] = useState("หมู่ 1");
   const [loading, setLoading] = useState(true);
 
-  const fetchUsers = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const userList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUsers(userList);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    }
-    setLoading(false);
-  };
-
+  // onSnapshot แทน getDocs ครั้งเดียว ให้รายชื่ออัปเดตสดเมื่อมีคนเพิ่ม/ลบจากเครื่องอื่น
   useEffect(() => {
     if (!user) return;
-    fetchUsers();
+    const unsubscribe = onSnapshot(
+      collection(db, "users"),
+      (snapshot) => {
+        setUsers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error watching users:", error);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
   }, [user]);
 
   const handleAddUser = async (e) => {
@@ -42,7 +43,6 @@ export default function UsersPage() {
         createdAt: new Date().toISOString()
       });
       setName("");
-      fetchUsers();
       alert("เพิ่มผู้ใช้งานสำเร็จ!");
     } catch (error) {
       console.error("Error adding user:", error);
@@ -54,7 +54,6 @@ export default function UsersPage() {
     if (confirm("คุณต้องการลบผู้ใช้นี้ใช่หรือไม่?")) {
       try {
         await deleteDoc(doc(db, "users", id));
-        fetchUsers();
       } catch (error) {
         console.error("Error deleting user:", error);
       }

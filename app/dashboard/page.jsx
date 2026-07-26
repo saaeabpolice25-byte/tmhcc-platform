@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 import { formatDateTime } from "@/services/aarService";
@@ -14,25 +14,31 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ใช้ onSnapshot แทน getDocs ครั้งเดียว เพื่อให้แดชบอร์ดอัปเดตสดทันทีที่มีเคส/สถานะงานเปลี่ยน
+  // (เช่น หน่วยอื่นกดยืนยันผ่านไลน์ หรือมีคนเปิดเหตุใหม่จากเครื่องอื่น) โดยไม่ต้องกด refresh เอง
   useEffect(() => {
     if (!user) return;
 
-    const fetchData = async () => {
-      try {
-        const incSnapshot = await getDocs(collection(db, "incidents"));
-        const incList = incSnapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-        setIncidents(incList);
-
-        const taskSnapshot = await getDocs(collection(db, "tasks"));
-        const taskList = taskSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setTasks(taskList);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+    const unsubIncidents = onSnapshot(
+      collection(db, "incidents"),
+      (snapshot) => {
+        setIncidents(snapshot.docs.map((doc) => ({ docId: doc.id, ...doc.data() })));
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error watching incidents:", error);
+        setLoading(false);
       }
-      setLoading(false);
-    };
+    );
 
-    fetchData();
+    const unsubTasks = onSnapshot(collection(db, "tasks"), (snapshot) => {
+      setTasks(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    }, (error) => console.error("Error watching tasks:", error));
+
+    return () => {
+      unsubIncidents();
+      unsubTasks();
+    };
   }, [user]);
 
   const redCount = incidents.filter(i => i.level === "RED").length;

@@ -1,10 +1,10 @@
 // app/incidents/[id]/page.jsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { db } from "@/firebase/config";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import TaskTable from "@/components/TaskTable";
 import { createConditionalTask } from "@/services/sopService";
 import { closeIncident, formatDateTime } from "@/services/aarService";
@@ -25,26 +25,29 @@ export default function IncidentDetailPage() {
   const [closing, setClosing] = useState(false);
   const [callingPolice, setCallingPolice] = useState(false);
 
-  const fetchIncident = useCallback(async () => {
-    setLoading(true);
-    try {
-      const snap = await getDoc(doc(db, "incidents", id));
-      if (snap.exists()) {
-        setIncident({ docId: snap.id, ...snap.data() });
-      } else {
-        setNotFound(true);
-      }
-    } catch (error) {
-      console.error("Error fetching incident:", error);
-      setNotFound(true);
-    }
-    setLoading(false);
-  }, [id]);
-
+  // onSnapshot แทน getDoc ครั้งเดียว เพื่อให้เห็นสถานะ/AAR อัปเดตสดทันทีที่มีการเปลี่ยนแปลง
+  // (เช่น โซ่ SOP ขยับไปหน่วยถัดไป หรือถูกปิดเหตุจากอีกเครื่อง) โดยไม่ต้อง refresh หน้าเอง
   useEffect(() => {
     if (!user) return;
-    fetchIncident();
-  }, [user, fetchIncident]);
+    setLoading(true);
+    const unsubscribe = onSnapshot(
+      doc(db, "incidents", id),
+      (snap) => {
+        if (snap.exists()) {
+          setIncident({ docId: snap.id, ...snap.data() });
+        } else {
+          setNotFound(true);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error watching incident:", error);
+        setNotFound(true);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [user, id]);
 
   const handleCallPolice = async () => {
     setCallingPolice(true);
@@ -73,9 +76,7 @@ export default function IncidentDetailPage() {
     const actor = getActorName();
     const result = await closeIncident(incident.docId, incident.id, actor);
     setClosing(false);
-    if (result.success) {
-      fetchIncident();
-    } else {
+    if (!result.success) {
       alert("ปิดเหตุการณ์ไม่สำเร็จ: " + result.error);
     }
   };

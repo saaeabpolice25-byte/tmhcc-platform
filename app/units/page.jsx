@@ -2,7 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUnits, updateUnitLineGroup } from "@/services/unitService";
+import { db } from "@/firebase/config";
+import { collection, onSnapshot } from "firebase/firestore";
+import { ensureUnitsSeeded, updateUnitLineGroup } from "@/services/unitService";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function UnitsPage() {
@@ -12,23 +14,36 @@ export default function UnitsPage() {
   const [savingCode, setSavingCode] = useState(null);
   const [sendingButtonCode, setSendingButtonCode] = useState(null);
 
-  const fetchUnits = async () => {
-    setLoading(true);
-    const list = await getUnits();
-    setUnits(list);
-    setLoading(false);
-  };
-
+  // ensureUnitsSeeded รันครั้งเดียวตอนเข้าเพื่อสร้าง 6 หน่วยเริ่มต้นถ้ายังไม่มี จากนั้นฟัง onSnapshot
+  // ต่อเนื่อง ให้เห็น Group ID ที่คนอื่นกรอกจากเครื่องอื่นอัปเดตสดโดยไม่ต้อง refresh
   useEffect(() => {
     if (!user) return;
-    fetchUnits();
+    let unsubscribe;
+    (async () => {
+      await ensureUnitsSeeded();
+      unsubscribe = onSnapshot(
+        collection(db, "units"),
+        (snapshot) => {
+          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          list.sort((a, b) => (a.stepOrder ?? 999) - (b.stepOrder ?? 999));
+          setUnits(list);
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error watching units:", error);
+          setLoading(false);
+        }
+      );
+    })();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [user]);
 
   const handleSave = async (unitCode, lineGroupId, active) => {
     setSavingCode(unitCode);
     const actor = localStorage.getItem("userName") || "ไม่ระบุชื่อ";
     await updateUnitLineGroup(unitCode, { lineGroupId, active }, actor);
-    await fetchUnits();
     setSavingCode(null);
   };
 

@@ -1,9 +1,9 @@
 // components/TaskTable.jsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
-import { collection, getDocs, query, where, limit, updateDoc, doc, serverTimestamp, arrayUnion } from "firebase/firestore";
+import { collection, onSnapshot, getDocs, query, where, limit, updateDoc, doc, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 import { advanceSopChain } from "@/services/sopService";
 import { sendTaskNotification } from "@/services/notifyService";
@@ -15,37 +15,36 @@ const UNIT_FILTERS = ["ALL", "ผู้ใหญ่บ้าน", "อสม.", 
 export default function TaskTable({ incidentId }) {
   const user = useRequireAuth();
   const [tasks, setTasks] = useState([]);
-  const [filteredTasks, setFilteredTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUnit, setSelectedUnit] = useState("ALL");
 
-  const fetchTasks = useCallback(async () => {
-    try {
-      const tasksRef = collection(db, "tasks");
-      const q = incidentId ? query(tasksRef, where("incidentId", "==", incidentId)) : tasksRef;
-      const querySnapshot = await getDocs(q);
-      const taskList = [];
-      querySnapshot.forEach((docItem) => {
-        taskList.push({ id: docItem.id, ...docItem.data() });
-      });
-      taskList.sort((a, b) => (a.stepOrder ?? 999) - (b.stepOrder ?? 999));
-      setTasks(taskList);
-      setFilteredTasks(taskList);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-    }
-    setLoading(false);
-  }, [incidentId]);
-
+  // ใช้ onSnapshot แทน getDocs ครั้งเดียว เพื่อให้ตารางอัปเดตสดทันทีที่มีคนกดสถานะ
+  // (ทั้งจากเว็บเครื่องอื่น หรือกดปุ่มยืนยันผ่านไลน์) โดยไม่ต้อง refresh หน้าเอง
   useEffect(() => {
     if (!user) return;
-    fetchTasks();
-  }, [user, fetchTasks]);
 
-  const handleFilter = (unit) => {
-    setSelectedUnit(unit);
-    setFilteredTasks(unit === "ALL" ? tasks : tasks.filter((t) => t.unit === unit));
-  };
+    const tasksRef = collection(db, "tasks");
+    const q = incidentId ? query(tasksRef, where("incidentId", "==", incidentId)) : tasksRef;
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const taskList = [];
+        snapshot.forEach((docItem) => taskList.push({ id: docItem.id, ...docItem.data() }));
+        taskList.sort((a, b) => (a.stepOrder ?? 999) - (b.stepOrder ?? 999));
+        setTasks(taskList);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error watching tasks:", error);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, incidentId]);
+
+  const filteredTasks = selectedUnit === "ALL" ? tasks : tasks.filter((t) => t.unit === selectedUnit);
 
   const getActorName = () => {
     if (typeof window === "undefined") return "ไม่ระบุชื่อ";
@@ -88,8 +87,7 @@ export default function TaskTable({ incidentId }) {
           }
         }
       }
-
-      fetchTasks();
+      // ไม่ต้องเรียก fetch ซ้ำ — onSnapshot ด้านบนจะอัปเดตตารางให้อัตโนมัติ
     } catch (error) {
       alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ: " + error.message);
     }
@@ -108,7 +106,7 @@ export default function TaskTable({ incidentId }) {
             {UNIT_FILTERS.map((unit) => (
               <button
                 key={unit}
-                onClick={() => handleFilter(unit)}
+                onClick={() => setSelectedUnit(unit)}
                 className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
                   selectedUnit === unit
                     ? "bg-blue-600 text-white shadow-sm"
