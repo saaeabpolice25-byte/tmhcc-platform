@@ -45,29 +45,6 @@ const fetchActorName = async (source) => {
   }
 };
 
-// พิมพ์อะไรก็ได้ในกลุ่มหลังแอดบอทเข้ากลุ่ม บอทจะตอบ Group ID กลับมาให้ก็อปไปกรอกที่หน้า /units
-const replyWithSourceId = async (event) => {
-  const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  const idLine =
-    event.source.type === "group"
-      ? `Group ID:\n${event.source.groupId}`
-      : event.source.type === "room"
-      ? `Room ID:\n${event.source.roomId}`
-      : `User ID:\n${event.source.userId}`;
-
-  await fetch("https://api.line.me/v2/bot/message/reply", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${channelAccessToken}`,
-    },
-    body: JSON.stringify({
-      replyToken: event.replyToken,
-      messages: [{ type: "text", text: `🔧 ${idLine}\n\nเอาไปกรอกที่หน้า /units ของระบบ TMHCC` }],
-    }),
-  });
-};
-
 const handlePostback = async (event, origin) => {
   const params = new URLSearchParams(event.postback.data);
   const action = params.get("action");
@@ -134,8 +111,6 @@ export async function POST(request) {
     try {
       if (event.type === "postback") {
         await handlePostback(event, origin);
-      } else if (event.type === "message" && event.message?.type === "text") {
-        await replyWithSourceId(event);
       }
     } catch (error) {
       console.error("LINE webhook event error:", error);
