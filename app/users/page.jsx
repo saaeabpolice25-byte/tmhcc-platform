@@ -2,21 +2,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db } from "@/firebase/config";
-import { collection, onSnapshot, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { db, auth } from "@/firebase/config";
+import { collection, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function UsersPage() {
   const user = useRequireAuth();
+  const [isAdmin, setIsAdmin] = useState(null); // null = กำลังตรวจสอบ, true/false = ผลตรวจ
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
   const [role, setRole] = useState("VHV"); // VHV = อสม., HOSPITAL = รพ.สต., ADMIN = ผู้บริหาร
   const [village, setVillage] = useState("หมู่ 1");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // เฉพาะบัญชี role=ADMIN เท่านั้นที่เข้าหน้านี้ได้
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        setIsAdmin(snap.exists() && snap.data().role === "ADMIN");
+      } catch (error) {
+        console.error("Error checking admin role:", error);
+        setIsAdmin(false);
+      }
+    })();
+  }, [user]);
 
   // onSnapshot แทน getDocs ครั้งเดียว ให้รายชื่ออัปเดตสดเมื่อมีคนเพิ่ม/ลบจากเครื่องอื่น
   useEffect(() => {
-    if (!user) return;
+    if (!isAdmin) return;
     const unsubscribe = onSnapshot(
       collection(db, "users"),
       (snapshot) => {
@@ -29,51 +48,73 @@ export default function UsersPage() {
       }
     );
     return () => unsubscribe();
-  }, [user]);
+  }, [isAdmin]);
+
+  const callManageMember = async (payload) => {
+    const idToken = await auth.currentUser.getIdToken();
+    const res = await fetch("/api/manage-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, ...payload }),
+    });
+    return res.json().catch(() => ({ success: false, error: "การเชื่อมต่อผิดพลาด" }));
+  };
 
   const handleAddUser = async (e) => {
     e.preventDefault();
-    if (!name) return alert("กรุณากรอกชื่อผู้ใช้งาน");
+    if (!name || !email || !password) return alert("กรุณากรอกชื่อ อีเมล และรหัสผ่านให้ครบ");
 
-    try {
-      await addDoc(collection(db, "users"), {
-        name,
-        role,
-        village,
-        createdAt: new Date().toISOString()
-      });
+    setSaving(true);
+    const result = await callManageMember({ action: "create", name, role, village, email, password });
+    setSaving(false);
+
+    if (result.success) {
       setName("");
-      alert("เพิ่มผู้ใช้งานสำเร็จ!");
-    } catch (error) {
-      console.error("Error adding user:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก");
+      setEmail("");
+      setPassword("");
+      alert("เพิ่มสมาชิกสำเร็จ! บัญชีนี้ล็อกอินเข้าใช้งานได้ทันที");
+    } else {
+      alert("เพิ่มสมาชิกไม่สำเร็จ: " + result.error);
     }
   };
 
   const handleDeleteUser = async (id) => {
-    if (confirm("คุณต้องการลบผู้ใช้นี้ใช่หรือไม่?")) {
-      try {
-        await deleteDoc(doc(db, "users", id));
-      } catch (error) {
-        console.error("Error deleting user:", error);
-      }
+    if (id === user.uid) {
+      alert("ไม่สามารถลบบัญชีของตัวเองได้");
+      return;
     }
+    if (!confirm("คุณต้องการลบสมาชิกนี้ใช่หรือไม่? บัญชี login ของคนนี้จะถูกลบไปด้วย")) return;
+
+    setDeletingId(id);
+    const result = await callManageMember({ action: "delete", uid: id });
+    setDeletingId(null);
+    if (!result.success) alert("ลบไม่สำเร็จ: " + result.error);
   };
 
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
+  if (isAdmin === null) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</div>;
+  if (!isAdmin) {
+    return (
+      <div className="p-6 max-w-lg mx-auto">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+          หน้านี้จำกัดให้เฉพาะผู้ดูแลระบบ (Admin) เท่านั้น
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <header className="mb-6 sm:mb-8 border-b pb-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">⚙️ ระบบจัดการสิทธิ์ผู้ใช้งาน (User Roles)</h1>
-          <p className="text-sm text-slate-500">กำหนดบทบาทหน้าที่ของเจ้าหน้าที่ อสม., รพ.สต. และผู้บริหารตำบล</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">⚙️ ระบบจัดการสมาชิกและสิทธิ์ผู้ใช้งาน</h1>
+          <p className="text-sm text-slate-500">เพิ่มสมาชิกใหม่พร้อมบัญชี login จริง กำหนดบทบาทหน้าที่ของเจ้าหน้าที่ อสม., รพ.สต. และผู้บริหารตำบล</p>
         </header>
 
-        {/* ฟอร์มเพิ่มผู้ใช้งาน */}
+        {/* ฟอร์มเพิ่มสมาชิก */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 sm:mb-8">
-          <h2 className="text-lg font-bold text-slate-700 mb-4">เพิ่มเจ้าหน้าที่ / บุคลากรในระบบ</h2>
-          <form onSubmit={handleAddUser} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <h2 className="text-lg font-bold text-slate-700 mb-4">เพิ่มสมาชิกใหม่</h2>
+          <form onSubmit={handleAddUser} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">ชื่อ -นามสกุล</label>
               <input
@@ -106,12 +147,41 @@ export default function UsersPage() {
                 className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500"
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">อีเมล (สำหรับ login)</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@tmhcc.go.th"
+                className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">รหัสผ่านเริ่มต้น</label>
+              <input
+                type="text"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="อย่างน้อย 6 ตัวอักษร"
+                className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500"
+              />
+            </div>
             <div className="flex items-end">
-              <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-blue-700 transition">
-                + บันทึกผู้ใช้
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-blue-700 transition disabled:bg-blue-300"
+              >
+                {saving ? "กำลังบันทึก..." : "+ เพิ่มสมาชิก"}
               </button>
             </div>
           </form>
+          <p className="text-xs text-slate-400 mt-3">
+            แจ้งอีเมล/รหัสผ่านนี้ให้สมาชิกใหม่ทราบเอง เพื่อใช้ล็อกอินเข้าเว็บได้ทันที
+          </p>
         </div>
 
         {/* ตารางแสดงรายชื่อผู้ใช้งาน */}
@@ -139,7 +209,9 @@ export default function UsersPage() {
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-50/50">
-                      <td className="p-4 font-medium text-slate-800">{u.name}</td>
+                      <td className="p-4 font-medium text-slate-800">
+                        {u.name}{u.id === user.uid ? " (คุณ)" : ""}
+                      </td>
                       <td className="p-3 sm:p-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           u.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
@@ -152,9 +224,10 @@ export default function UsersPage() {
                       <td className="p-4 text-center">
                         <button
                           onClick={() => handleDeleteUser(u.id)}
-                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold transition"
+                          disabled={deletingId === u.id || u.id === user.uid}
+                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold transition disabled:opacity-40"
                         >
-                          ลบ
+                          {deletingId === u.id ? "กำลังลบ..." : "ลบ"}
                         </button>
                       </td>
                     </tr>
