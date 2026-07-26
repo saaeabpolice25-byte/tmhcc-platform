@@ -27,7 +27,7 @@ const LEVEL_EMOJI = { RED: "🔴", ORANGE: "🟠", YELLOW: "🟡" };
 const LEVEL_LABEL = { RED: "วิกฤต", ORANGE: "เร่งด่วน", YELLOW: "ติดตามอาการ" };
 
 const buildFlexMessage = (incident) => {
-  const { incidentCode, type, level, village, title, taskId, unitCode, unit, task } = incident;
+  const { incidentCode, type, level, village, title, taskId, unitCode, unit, task, location } = incident;
   const thaiType = typeLabels[type] || type;
   const color = LEVEL_COLOR[level] || LEVEL_COLOR.YELLOW;
   const emoji = LEVEL_EMOJI[level] || "🟡";
@@ -39,6 +39,32 @@ const buildFlexMessage = (incident) => {
     incidentCode,
     unitCode,
   }).toString();
+
+  const footerButtons = [
+    {
+      type: "button",
+      style: "primary",
+      color: "#2563EB",
+      action: {
+        type: "postback",
+        label: "ดำเนินการแล้ว",
+        data: postbackData,
+        displayText: "ยืนยันดำเนินการแล้ว",
+      },
+    },
+  ];
+
+  if (location && location.lat && location.lng) {
+    footerButtons.push({
+      type: "button",
+      style: "secondary",
+      action: {
+        type: "uri",
+        label: "📍 เปิดแผนที่ไปที่เกิดเหตุ",
+        uri: `https://www.google.com/maps?q=${location.lat},${location.lng}`,
+      },
+    });
+  }
 
   return {
     type: "flex",
@@ -71,19 +97,8 @@ const buildFlexMessage = (incident) => {
       footer: {
         type: "box",
         layout: "vertical",
-        contents: [
-          {
-            type: "button",
-            style: "primary",
-            color: "#2563EB",
-            action: {
-              type: "postback",
-              label: "ดำเนินการแล้ว",
-              data: postbackData,
-              displayText: "ยืนยันดำเนินการแล้ว",
-            },
-          },
-        ],
+        spacing: "sm",
+        contents: footerButtons,
       },
     },
   };

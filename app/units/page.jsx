@@ -10,6 +10,7 @@ export default function UnitsPage() {
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingCode, setSavingCode] = useState(null);
+  const [sendingButtonCode, setSendingButtonCode] = useState(null);
 
   const fetchUnits = async () => {
     setLoading(true);
@@ -31,6 +32,22 @@ export default function UnitsPage() {
     setSavingCode(null);
   };
 
+  const handleSendLiffButton = async (unitCode) => {
+    setSendingButtonCode(unitCode);
+    const res = await fetch("/api/send-liff-button", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unitCode }),
+    });
+    const result = await res.json().catch(() => ({}));
+    setSendingButtonCode(null);
+    if (result.success) {
+      alert("ส่งปุ่มเข้ากลุ่มแล้ว — อย่าลืมให้คนในกลุ่มกดค้างที่ข้อความแล้วปักหมุดไว้");
+    } else {
+      alert("ส่งไม่สำเร็จ: " + result.error);
+    }
+  };
+
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
 
   return (
@@ -49,7 +66,14 @@ export default function UnitsPage() {
         ) : (
           <div className="space-y-3">
             {units.map((u) => (
-              <UnitRow key={u.id} unit={u} onSave={handleSave} saving={savingCode === u.id} />
+              <UnitRow
+                key={u.id}
+                unit={u}
+                onSave={handleSave}
+                saving={savingCode === u.id}
+                onSendLiffButton={handleSendLiffButton}
+                sendingButton={sendingButtonCode === u.id}
+              />
             ))}
           </div>
         )}
@@ -58,7 +82,7 @@ export default function UnitsPage() {
   );
 }
 
-function UnitRow({ unit, onSave, saving }) {
+function UnitRow({ unit, onSave, saving, onSendLiffButton, sendingButton }) {
   const [groupId, setGroupId] = useState(unit.lineGroupId || "");
   const [active, setActive] = useState(unit.active !== false);
 
@@ -86,6 +110,16 @@ function UnitRow({ unit, onSave, saving }) {
       >
         {saving ? "กำลังบันทึก..." : "บันทึก"}
       </button>
+      {unit.id === "VILLAGE_HEAD" && (
+        <button
+          onClick={() => onSendLiffButton(unit.id)}
+          disabled={sendingButton || !unit.lineGroupId}
+          title={!unit.lineGroupId ? "ต้องบันทึก Group ID ก่อน" : "ส่งปุ่มเปิดเหตุฉุกเฉินเข้ากลุ่มนี้"}
+          className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition disabled:bg-red-300 shrink-0"
+        >
+          {sendingButton ? "กำลังส่ง..." : "🚨 ส่งปุ่มเปิดเหตุเข้ากลุ่ม"}
+        </button>
+      )}
     </div>
   );
 }

@@ -27,19 +27,22 @@ const generateIncidentId = async () => {
   return `INC-${currentYear}-${paddedNum}`;
 };
 
-// ฟังก์ชันเปิดเหตุใหม่แบบเดิม
-export const createIncident = async (incidentData) => {
+// ฟังก์ชันเปิดเหตุใหม่ — ใช้ได้ทั้งจากหน้าเว็บ (baseUrl ว่าง) และจาก server route อื่น เช่น LIFF (ใส่ origin เต็ม)
+export const createIncident = async (incidentData, baseUrl = "") => {
   try {
     const newId = await generateIncidentId();
-    
+
     const payload = {
       id: newId,
       type: incidentData.type,
       title: incidentData.title,
       level: incidentData.level || "RED",
       village: incidentData.village || "หมู่ 3",
+      location: incidentData.location || null, // { lat, lng } ถ้าแนบตำแหน่งมาด้วย (เช่นจากฟอร์ม LIFF)
       status: "ACTIVE",
       createdBy: incidentData.createdBy || "ผู้ใหญ่บ้าน",
+      createdByLineUserId: incidentData.createdByLineUserId || null,
+      reportedVia: incidentData.reportedVia || "WEB",
       createdAt: serverTimestamp(),
     };
 
@@ -50,7 +53,7 @@ export const createIncident = async (incidentData) => {
     const sopResult = await createSopTasksForIncident(newId);
 
     // 3. ส่งแจ้งเตือนผ่าน LINE OA ไปยังกลุ่มของหน่วยงานที่รับผิดชอบขั้นแรก
-    await sendTaskNotifications(payload, sopResult.tasks || []);
+    await sendTaskNotifications(payload, sopResult.tasks || [], baseUrl);
 
     return { success: true, id: newId, docId: incidentRef.id };
   } catch (error) {

@@ -90,7 +90,22 @@ export default function IncidentDetailPage() {
         <header className="mb-6 border-b pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-800">เหตุการณ์ {incident.id}</h1>
-            <p className="text-sm text-slate-500">{incident.title} · {incident.village}</p>
+            <p className="text-sm text-slate-500">
+              {incident.title} · {incident.village}
+              {incident.location && incident.location.lat && (
+                <>
+                  {" · "}
+                  <a
+                    href={`https://www.google.com/maps?q=${incident.location.lat},${incident.location.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    📍 เปิดแผนที่
+                  </a>
+                </>
+              )}
+            </p>
           </div>
           <span className={`self-start sm:self-auto px-2.5 py-1 rounded-full text-xs font-bold ${
             incident.status === "CLOSED" ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-700"
