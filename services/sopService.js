@@ -21,10 +21,12 @@ const baseTaskFields = () => ({
   createdAt: serverTimestamp(),
 });
 
+// คืนค่า array ของ task ที่สร้าง (พร้อม taskId) เพื่อให้ incidentService เอาไปยิงแจ้งเตือน LINE ต่อหน่วยได้
 export const createSopTasksForIncident = async (incidentId) => {
   try {
+    const createdTasks = [];
     for (const item of AUTOMATIC_TASKS) {
-      await addDoc(collection(db, "tasks"), {
+      const ref = await addDoc(collection(db, "tasks"), {
         incidentId,
         unitCode: item.unitCode,
         unit: item.unit,
@@ -43,17 +45,18 @@ export const createSopTasksForIncident = async (incidentId) => {
         ],
         ...baseTaskFields(),
       });
+      createdTasks.push({ taskId: ref.id, unitCode: item.unitCode, unit: item.unit, task: item.task });
     }
-    return { success: true };
+    return { success: true, tasks: createdTasks };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, tasks: [] };
   }
 };
 
 // สร้างภารกิจเสริมกรณีจำเป็น เช่น แจ้งตำรวจ — ไม่ได้เกิดขึ้นอัตโนมัติทุกเคส ต้องกดสั่งเอง
 export const createConditionalTask = async (incidentId, unitCode, unitLabel, taskDescription, createdBy) => {
   try {
-    await addDoc(collection(db, "tasks"), {
+    const ref = await addDoc(collection(db, "tasks"), {
       incidentId,
       unitCode,
       unit: unitLabel,
@@ -72,7 +75,7 @@ export const createConditionalTask = async (incidentId, unitCode, unitLabel, tas
       ],
       ...baseTaskFields(),
     });
-    return { success: true };
+    return { success: true, task: { taskId: ref.id, unitCode, unit: unitLabel, task: taskDescription } };
   } catch (error) {
     return { success: false, error: error.message };
   }

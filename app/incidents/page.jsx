@@ -4,8 +4,10 @@
 import { useState } from "react";
 import { createIncident } from "@/services/incidentService";
 import { useRouter } from "next/navigation";
+import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function IncidentsPage() {
+  const user = useRequireAuth();
   const router = useRouter();
   const [selectedType, setSelectedType] = useState("SUICIDE_RISK");
   const [title, setTitle] = useState("ผู้มีภาวะเสี่ยงฆ่าตัวตาย");
@@ -53,6 +55,8 @@ export default function IncidentsPage() {
     }
     setLoading(false);
   };
+
+  if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">

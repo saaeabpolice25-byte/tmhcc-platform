@@ -5,13 +5,17 @@ import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
+import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function DashboardPage() {
+  const user = useRequireAuth();
   const [incidents, setIncidents] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) return;
+
     const fetchData = async () => {
       try {
         const incSnapshot = await getDocs(collection(db, "incidents"));
@@ -28,7 +32,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, []);
+  }, [user]);
 
   const redCount = incidents.filter(i => i.level === "RED").length;
   const orangeCount = incidents.filter(i => i.level === "ORANGE").length;
@@ -38,6 +42,7 @@ export default function DashboardPage() {
     return tasks.filter(t => t.unit === unitName && t.status !== "COMPLETED").length;
   };
 
+  if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
   if (loading) return <div className="p-6 text-slate-500">กำลังโหลดข้อมูลแดชบอร์ด...</div>;
 
   return (

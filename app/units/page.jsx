@@ -3,8 +3,10 @@
 
 import { useState, useEffect } from "react";
 import { getUnits, updateUnitLineGroup } from "@/services/unitService";
+import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function UnitsPage() {
+  const user = useRequireAuth();
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingCode, setSavingCode] = useState(null);
@@ -17,8 +19,9 @@ export default function UnitsPage() {
   };
 
   useEffect(() => {
+    if (!user) return;
     fetchUnits();
-  }, []);
+  }, [user]);
 
   const handleSave = async (unitCode, lineGroupId, active) => {
     setSavingCode(unitCode);
@@ -27,6 +30,8 @@ export default function UnitsPage() {
     await fetchUnits();
     setSavingCode(null);
   };
+
+  if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50">

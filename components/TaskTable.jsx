@@ -4,12 +4,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/firebase/config";
 import { collection, getDocs, query, where, updateDoc, doc, serverTimestamp, arrayUnion } from "firebase/firestore";
+import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 const UNIT_FILTERS = ["ALL", "ผู้ใหญ่บ้าน", "อสม.", "รพ.สต.", "โรงพยาบาล", "EMS", "ตำรวจ"];
 
 // ถ้าส่ง incidentId มา จะแสดงเฉพาะภารกิจของเหตุการณ์นั้น (ใช้ในหน้ารายละเอียดเหตุการณ์)
 // ถ้าไม่ส่งมา จะแสดงภารกิจทั้งหมดในระบบ พร้อมตัวกรองตามหน่วยงาน (ใช้ในหน้า /sop)
 export default function TaskTable({ incidentId }) {
+  const user = useRequireAuth();
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +36,9 @@ export default function TaskTable({ incidentId }) {
   }, [incidentId]);
 
   useEffect(() => {
+    if (!user) return;
     fetchTasks();
-  }, [fetchTasks]);
+  }, [user, fetchTasks]);
 
   const handleFilter = (unit) => {
     setSelectedUnit(unit);
@@ -77,6 +80,7 @@ export default function TaskTable({ incidentId }) {
     }
   };
 
+  if (!user) return <div className="p-4 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
   if (loading) return <div className="p-4 text-slate-500">กำลังโหลดรายการงาน SOP...</div>;
 
   return (

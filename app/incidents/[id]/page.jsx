@@ -8,6 +8,8 @@ import { doc, getDoc } from "firebase/firestore";
 import TaskTable from "@/components/TaskTable";
 import { createConditionalTask } from "@/services/sopService";
 import { closeIncident } from "@/services/aarService";
+import { sendTaskNotification } from "@/services/notifyService";
+import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 const getActorName = () => {
   if (typeof window === "undefined") return "ไม่ระบุชื่อ";
@@ -15,6 +17,7 @@ const getActorName = () => {
 };
 
 export default function IncidentDetailPage() {
+  const user = useRequireAuth();
   const { id } = useParams();
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,8 +42,9 @@ export default function IncidentDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!user) return;
     fetchIncident();
-  }, [fetchIncident]);
+  }, [user, fetchIncident]);
 
   const handleCallPolice = async () => {
     setCallingPolice(true);
@@ -52,6 +56,9 @@ export default function IncidentDetailPage() {
       "สนับสนุนความปลอดภัยและควบคุมสถานการณ์",
       actor
     );
+    if (result.success) {
+      await sendTaskNotification(incident, result.task);
+    }
     setCallingPolice(false);
     if (result.success) {
       alert("แจ้งตำรวจแล้ว");
@@ -73,6 +80,7 @@ export default function IncidentDetailPage() {
     }
   };
 
+  if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
   if (loading) return <div className="p-6 text-slate-500">กำลังโหลดข้อมูลเหตุการณ์...</div>;
   if (notFound || !incident) return <div className="p-6 text-slate-500">ไม่พบเหตุการณ์นี้ในระบบ</div>;
 

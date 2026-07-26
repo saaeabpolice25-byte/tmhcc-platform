@@ -1,17 +1,33 @@
 // components/Navbar.jsx
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/firebase/config";
+import { logoutUser } from "@/firebase/auth";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
+    return () => unsubscribe();
+  }, []);
 
   const navLinks = [
     { href: "/dashboard", label: "📊 แดชบอร์ด" },
     { href: "/incidents", label: "🚨 เปิดเหตุ" },
     { href: "/sop", label: "📋 ติดตาม SOP" },
   ];
+
+  const handleLogout = async () => {
+    await logoutUser();
+    router.push("/login");
+  };
 
   return (
     <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
@@ -40,6 +56,24 @@ export default function Navbar() {
               </Link>
             );
           })}
+
+          {pathname !== "/login" && (
+            user ? (
+              <button
+                onClick={handleLogout}
+                className="ml-1 px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-red-600 hover:bg-red-50 whitespace-nowrap transition"
+              >
+                ออกจากระบบ
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="ml-1 px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-blue-600 hover:bg-blue-50 whitespace-nowrap transition"
+              >
+                เข้าสู่ระบบ
+              </Link>
+            )
+          )}
         </div>
       </div>
     </nav>

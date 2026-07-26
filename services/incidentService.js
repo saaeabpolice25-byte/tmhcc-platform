@@ -2,7 +2,7 @@
 import { db } from "@/firebase/config";
 import { collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "firebase/firestore";
 import { createSopTasksForIncident } from "./sopService";
-import { sendLineNotification } from "./notifyService";
+import { sendTaskNotifications } from "./notifyService";
 
 // ฟังก์ชันสร้างเลขรหัสเหตุการณ์อัตโนมัติ (เช่น INC-2026-000001)
 const generateIncidentId = async () => {
@@ -47,10 +47,10 @@ export const createIncident = async (incidentData) => {
     await addDoc(collection(db, "incidents"), payload);
 
     // 2. สร้าง Task ตาม SOP อัตโนมัติทันที
-    await createSopTasksForIncident(newId);
+    const sopResult = await createSopTasksForIncident(newId);
 
-    // 3. ส่งแจ้งเตือนผ่าน LINE OA อัตโนมัติ
-    await sendLineNotification(payload);
+    // 3. ส่งแจ้งเตือนผ่าน LINE OA แยกกลุ่มตามหน่วยงาน (1 ข้อความ/หน่วย/task)
+    await sendTaskNotifications(payload, sopResult.tasks || []);
 
     return { success: true, id: newId };
   } catch (error) {

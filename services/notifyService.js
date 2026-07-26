@@ -1,27 +1,43 @@
 // services/notifyService.js
 
-// ฟังก์ชันส่งข้อความแจ้งเตือนผ่าน LINE Messaging API
-// หมายเหตุ: Token และการเรียก LINE API จริงอยู่ฝั่ง server เท่านั้น (app/api/notify-line/route.js)
+// ส่งแจ้งเตือนภารกิจ "หนึ่ง task" ไปยังกลุ่ม LINE ของหน่วยงานที่รับผิดชอบ task นั้นโดยเฉพาะ
+// Token/Group ID และการเรียก LINE API จริงอยู่ฝั่ง server เท่านั้น (app/api/notify-line/route.js)
 // เพื่อไม่ให้ Channel Access Token หลุดไปอยู่ใน JS bundle ฝั่ง client
-export const sendLineNotification = async (incidentData) => {
+export const sendTaskNotification = async (incident, task) => {
   try {
     const response = await fetch("/api/notify-line", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(incidentData),
+      body: JSON.stringify({
+        incidentCode: incident.id,
+        type: incident.type,
+        level: incident.level,
+        village: incident.village,
+        title: incident.title,
+        taskId: task.taskId,
+        unitCode: task.unitCode,
+        unit: task.unit,
+        task: task.task,
+      }),
     });
 
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok || !result.success) {
-      console.warn("ไม่สามารถส่งแจ้งเตือน LINE ได้:", result.error);
+      console.warn(`ไม่สามารถส่งแจ้งเตือน LINE ให้หน่วย ${task.unit} ได้:`, result.error);
       return { success: false, error: result.error || "Failed to send LINE notification" };
     }
 
-    return { success: true };
+    return { success: true, skipped: !!result.skipped };
   } catch (error) {
     // ป้องกันไม่ให้แอปพัง (Crash) หากเครือข่ายบล็อกการเชื่อมต่อ
     console.warn("ไม่สามารถเชื่อมต่อ /api/notify-line ได้:", error.message);
     return { success: false, error: error.message };
   }
+};
+
+// ยิงแจ้งเตือนให้ครบทุก task ที่เพิ่งสร้าง (ใช้ตอนเปิดเหตุใหม่ ซึ่งสร้างหลาย task พร้อมกัน)
+export const sendTaskNotifications = async (incident, tasks) => {
+  const results = await Promise.all(tasks.map((task) => sendTaskNotification(incident, task)));
+  return results;
 };

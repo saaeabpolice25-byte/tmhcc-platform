@@ -4,8 +4,10 @@
 import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { collection, getDocs, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function UsersPage() {
+  const user = useRequireAuth();
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
   const [role, setRole] = useState("VHV"); // VHV = อสม., HOSPITAL = รพ.สต., ADMIN = ผู้บริหาร
@@ -24,8 +26,9 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    if (!user) return;
     fetchUsers();
-  }, []);
+  }, [user]);
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -57,6 +60,8 @@ export default function UsersPage() {
       }
     }
   };
+
+  if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50">
