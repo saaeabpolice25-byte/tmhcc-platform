@@ -46,10 +46,10 @@ export default function IncidentsPage() {
     });
 
     if (result.success) {
-      setSuccessMsg("ส่งข้อมูลเปิดเหตุไปยัง n8n สำเร็จ!");
+      setSuccessMsg("เปิดเหตุสำเร็จ! กำลังไปหน้ารายละเอียดเพื่อยืนยันขั้นตอนแรก...");
       setTimeout(() => {
-        router.push("/dashboard");
-      }, 2000);
+        router.push(`/incidents/${result.docId}`);
+      }, 1500);
     } else {
       setErrorMsg(`เกิดข้อผิดพลาด: ${result.error}`);
     }

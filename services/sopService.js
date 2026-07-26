@@ -2,7 +2,8 @@
 import { db } from "@/firebase/config";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-// ลำดับขั้นตอนมาตรฐาน (SOP) ที่สร้างอัตโนมัติทุกเหตุการณ์
+// ลำดับขั้นตอนมาตรฐาน (SOP) — สร้างทีละขั้นเป็นโซ่ ไม่สร้างพร้อมกันทั้งหมด
+// ขั้นถัดไปจะถูกสร้าง+แจ้งเตือนก็ต่อเมื่อขั้นก่อนหน้ากด "เสร็จสิ้น/ยืนยัน" แล้วเท่านั้น (ดู advanceSopChain)
 export const AUTOMATIC_TASKS = [
   { unitCode: "VILLAGE_HEAD", unit: "ผู้ใหญ่บ้าน", task: "รับแจ้งเหตุและคัดกรองเบื้องต้น", order: 1 },
   { unitCode: "VHV", unit: "อสม.", task: "ตรวจสอบข้อมูลและเฝ้าระวังพื้นที่", order: 2 },
@@ -21,39 +22,53 @@ const baseTaskFields = () => ({
   createdAt: serverTimestamp(),
 });
 
-// คืนค่า array ของ task ที่สร้าง (พร้อม taskId) เพื่อให้ incidentService เอาไปยิงแจ้งเตือน LINE ต่อหน่วยได้
+const buildAutomaticTaskDoc = (incidentId, item, note) => ({
+  incidentId,
+  unitCode: item.unitCode,
+  unit: item.unit,
+  task: item.task,
+  stepOrder: item.order,
+  isConditional: false,
+  history: [
+    {
+      status: "PENDING",
+      actorType: "SYSTEM",
+      actorId: null,
+      actorDisplayName: "ระบบ",
+      timestamp: new Date(),
+      note,
+    },
+  ],
+  ...baseTaskFields(),
+});
+
+// เปิดเหตุใหม่ -> สร้างแค่ขั้นตอนแรกสุด (ผู้ใหญ่บ้าน) เท่านั้น
 export const createSopTasksForIncident = async (incidentId) => {
   try {
-    const createdTasks = [];
-    for (const item of AUTOMATIC_TASKS) {
-      const ref = await addDoc(collection(db, "tasks"), {
-        incidentId,
-        unitCode: item.unitCode,
-        unit: item.unit,
-        task: item.task,
-        stepOrder: item.order,
-        isConditional: false,
-        history: [
-          {
-            status: "PENDING",
-            actorType: "SYSTEM",
-            actorId: null,
-            actorDisplayName: "ระบบ",
-            timestamp: new Date(),
-            note: "สร้างภารกิจอัตโนมัติตาม SOP",
-          },
-        ],
-        ...baseTaskFields(),
-      });
-      createdTasks.push({ taskId: ref.id, unitCode: item.unitCode, unit: item.unit, task: item.task });
-    }
-    return { success: true, tasks: createdTasks };
+    const firstItem = AUTOMATIC_TASKS[0];
+    const ref = await addDoc(collection(db, "tasks"), buildAutomaticTaskDoc(incidentId, firstItem, "เปิดภารกิจขั้นแรกของ SOP"));
+    const task = { taskId: ref.id, unitCode: firstItem.unitCode, unit: firstItem.unit, task: firstItem.task };
+    return { success: true, tasks: [task] };
   } catch (error) {
     return { success: false, error: error.message, tasks: [] };
   }
 };
 
-// สร้างภารกิจเสริมกรณีจำเป็น เช่น แจ้งตำรวจ — ไม่ได้เกิดขึ้นอัตโนมัติทุกเคส ต้องกดสั่งเอง
+// เรียกหลัง task ของขั้นตอนอัตโนมัติหนึ่งถูกกด "เสร็จสิ้น" แล้ว เพื่อสร้าง+ส่งแจ้งเตือนขั้นถัดไปในโซ่
+// คืนค่า task: null ถ้าเป็นขั้นตอนสุดท้ายแล้ว (EMS เสร็จ = จบ SOP chain ไม่ต้องสร้างต่อ)
+export const advanceSopChain = async (incidentId, completedStepOrder) => {
+  const nextItem = AUTOMATIC_TASKS.find((item) => item.order === completedStepOrder + 1);
+  if (!nextItem) return { success: true, task: null };
+
+  try {
+    const ref = await addDoc(collection(db, "tasks"), buildAutomaticTaskDoc(incidentId, nextItem, `เปิดภารกิจต่อจากขั้นที่ ${completedStepOrder} เสร็จสิ้น`));
+    return { success: true, task: { taskId: ref.id, unitCode: nextItem.unitCode, unit: nextItem.unit, task: nextItem.task } };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// สร้างภารกิจเสริมกรณีจำเป็น เช่น แจ้งตำรวจ — ไม่ได้เกิดขึ้นอัตโนมัติทุกเคส ต้องกดสั่งเอง ไม่อยู่ในโซ่ SOP
 export const createConditionalTask = async (incidentId, unitCode, unitLabel, taskDescription, createdBy) => {
   try {
     const ref = await addDoc(collection(db, "tasks"), {

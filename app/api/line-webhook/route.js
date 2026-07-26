@@ -2,8 +2,9 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { getFirestore, doc, getDoc, updateDoc, arrayUnion, serverTimestamp, collection, getDocs, query, where, limit } from "firebase/firestore";
 import { ensureServerAuth } from "@/firebase/serverAuth";
+import { advanceSopChain } from "@/services/sopService";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAxFBGjS9VB8H6bd5I_b7R25eLZIm4YZss",
@@ -66,7 +67,26 @@ const replyWithSourceId = async (event) => {
   });
 };
 
-const handlePostback = async (event) => {
+// ยิงแจ้งเตือนไปยัง /api/notify-line เอง (เรียก endpoint ตัวเองแบบ absolute URL เพราะเป็น server-to-server)
+const pushTaskNotification = async (origin, incidentData, task) => {
+  await fetch(`${origin}/api/notify-line`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      incidentCode: incidentData.id,
+      type: incidentData.type,
+      level: incidentData.level,
+      village: incidentData.village,
+      title: incidentData.title,
+      taskId: task.taskId,
+      unitCode: task.unitCode,
+      unit: task.unit,
+      task: task.task,
+    }),
+  });
+};
+
+const handlePostback = async (event, origin) => {
   const params = new URLSearchParams(event.postback.data);
   const action = params.get("action");
   const taskId = params.get("taskId");
@@ -103,6 +123,17 @@ const handlePostback = async (event) => {
   }
 
   await updateDoc(taskRef, updates);
+
+  // เป็นขั้นตอนอัตโนมัติของ SOP (ไม่ใช่ภารกิจเสริมอย่างตำรวจ) -> สร้าง+แจ้งเตือนขั้นถัดไปในโซ่
+  if (task.stepOrder != null && !task.isConditional) {
+    const advanceResult = await advanceSopChain(task.incidentId, task.stepOrder);
+    if (advanceResult.success && advanceResult.task) {
+      const incSnap = await getDocs(query(collection(db, "incidents"), where("id", "==", task.incidentId), limit(1)));
+      if (!incSnap.empty) {
+        await pushTaskNotification(origin, incSnap.docs[0].data(), advanceResult.task);
+      }
+    }
+  }
 };
 
 export async function POST(request) {
@@ -115,11 +146,12 @@ export async function POST(request) {
 
   const payload = JSON.parse(rawBody || "{}");
   const events = payload.events || [];
+  const origin = new URL(request.url).origin;
 
   for (const event of events) {
     try {
       if (event.type === "postback") {
-        await handlePostback(event);
+        await handlePostback(event, origin);
       } else if (event.type === "message" && event.message?.type === "text") {
         await replyWithSourceId(event);
       }

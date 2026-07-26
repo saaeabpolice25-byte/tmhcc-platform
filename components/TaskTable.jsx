@@ -3,8 +3,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { db } from "@/firebase/config";
-import { collection, getDocs, query, where, updateDoc, doc, serverTimestamp, arrayUnion } from "firebase/firestore";
+import { collection, getDocs, query, where, limit, updateDoc, doc, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
+import { advanceSopChain } from "@/services/sopService";
+import { sendTaskNotification } from "@/services/notifyService";
 
 const UNIT_FILTERS = ["ALL", "ผู้ใหญ่บ้าน", "อสม.", "รพ.สต.", "โรงพยาบาล", "EMS", "ตำรวจ"];
 
@@ -74,6 +76,19 @@ export default function TaskTable({ incidentId }) {
         updates.completedBy = actor;
       }
       await updateDoc(doc(db, "tasks", task.id), updates);
+
+      // ถ้าเป็นขั้นตอนอัตโนมัติของ SOP (ไม่ใช่ภารกิจเสริม) และเพิ่งกดเสร็จสิ้น -> สร้าง+แจ้งเตือนขั้นถัดไปในโซ่
+      if (newStatus === "COMPLETED" && task.stepOrder != null && !task.isConditional) {
+        const advanceResult = await advanceSopChain(task.incidentId, task.stepOrder);
+        if (advanceResult.success && advanceResult.task) {
+          const incSnap = await getDocs(query(collection(db, "incidents"), where("id", "==", task.incidentId), limit(1)));
+          if (!incSnap.empty) {
+            const incidentData = incSnap.docs[0].data();
+            await sendTaskNotification(incidentData, advanceResult.task);
+          }
+        }
+      }
+
       fetchTasks();
     } catch (error) {
       alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ: " + error.message);

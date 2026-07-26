@@ -44,15 +44,15 @@ export const createIncident = async (incidentData) => {
     };
 
     // 1. บันทึกลง Collection incidents ใน Firestore
-    await addDoc(collection(db, "incidents"), payload);
+    const incidentRef = await addDoc(collection(db, "incidents"), payload);
 
-    // 2. สร้าง Task ตาม SOP อัตโนมัติทันที
+    // 2. สร้าง Task ขั้นแรกของ SOP (ผู้ใหญ่บ้าน) — ขั้นถัดไปจะสร้างเองเมื่อขั้นก่อนหน้าเสร็จ
     const sopResult = await createSopTasksForIncident(newId);
 
-    // 3. ส่งแจ้งเตือนผ่าน LINE OA แยกกลุ่มตามหน่วยงาน (1 ข้อความ/หน่วย/task)
+    // 3. ส่งแจ้งเตือนผ่าน LINE OA ไปยังกลุ่มของหน่วยงานที่รับผิดชอบขั้นแรก
     await sendTaskNotifications(payload, sopResult.tasks || []);
 
-    return { success: true, id: newId };
+    return { success: true, id: newId, docId: incidentRef.id };
   } catch (error) {
     return { success: false, error: error.message };
   }

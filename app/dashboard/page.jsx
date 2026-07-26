@@ -42,6 +42,16 @@ export default function DashboardPage() {
     return tasks.filter(t => t.unit === unitName && t.status !== "COMPLETED").length;
   };
 
+  // งานที่ยังไม่เสร็จของเคสนี้ (ในโซ่ SOP หลักก่อน ถ้าไม่มีค่อยดูภารกิจเสริมอย่างตำรวจ)
+  const getCurrentStageTask = (incidentCode) => {
+    const incidentTasks = tasks.filter(t => t.incidentId === incidentCode);
+    return (
+      incidentTasks.find(t => !t.isConditional && t.status !== "COMPLETED") ||
+      incidentTasks.find(t => t.isConditional && t.status !== "COMPLETED") ||
+      null
+    );
+  };
+
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
   if (loading) return <div className="p-6 text-slate-500">กำลังโหลดข้อมูลแดชบอร์ด...</div>;
 
@@ -120,6 +130,7 @@ export default function DashboardPage() {
                   <th className="p-3 sm:p-4">รหัสเคส</th>
                   <th className="p-3 sm:p-4">ประเภท</th>
                   <th className="p-3 sm:p-4">ระดับ</th>
+                  <th className="p-3 sm:p-4">กำลังดำเนินการที่</th>
                   <th className="p-3 sm:p-4">พื้นที่ (หมู่บ้าน)</th>
                   <th className="p-3 sm:p-4">หัวข้อเหตุการณ์</th>
                 </tr>
@@ -127,30 +138,43 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {incidents.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="p-6 text-center text-slate-400">ยังไม่มีประวัติเหตุการณ์ในระบบ</td>
+                    <td colSpan="6" className="p-6 text-center text-slate-400">ยังไม่มีประวัติเหตุการณ์ในระบบ</td>
                   </tr>
                 ) : (
-                  incidents.map((inc) => (
-                    <tr key={inc.docId} className="hover:bg-slate-50/50">
-                      <td className="p-4 font-medium text-blue-600">
-                        <Link href={`/incidents/${inc.docId}`} className="hover:underline">{inc.id}</Link>
-                        {inc.status === "CLOSED" && (
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600 align-middle">ปิดแล้ว</span>
-                        )}
-                      </td>
-                      <td className="p-3 sm:p-4">{inc.type}</td>
-                      <td className="p-3 sm:p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          inc.level === "RED" ? "bg-red-100 text-red-700" :
-                          inc.level === "ORANGE" ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700"
-                        }`}>
-                          {inc.level}
-                        </span>
-                      </td>
-                      <td className="p-3 sm:p-4">{inc.village}</td>
-                      <td className="p-4 text-slate-600">{inc.title}</td>
-                    </tr>
-                  ))
+                  incidents.map((inc) => {
+                    const stageTask = getCurrentStageTask(inc.id);
+                    return (
+                      <tr key={inc.docId} className="hover:bg-slate-50/50">
+                        <td className="p-4 font-medium text-blue-600">
+                          <Link href={`/incidents/${inc.docId}`} className="hover:underline">{inc.id}</Link>
+                        </td>
+                        <td className="p-3 sm:p-4">{inc.type}</td>
+                        <td className="p-3 sm:p-4">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            inc.level === "RED" ? "bg-red-100 text-red-700" :
+                            inc.level === "ORANGE" ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700"
+                          }`}>
+                            {inc.level}
+                          </span>
+                        </td>
+                        <td className="p-3 sm:p-4">
+                          {inc.status === "CLOSED" ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-600">ปิดเหตุแล้ว</span>
+                          ) : stageTask ? (
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                              stageTask.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                            }`}>
+                              {stageTask.unit}{stageTask.status === "IN_PROGRESS" ? " (กำลังทำ)" : " (รอดำเนินการ)"}
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">ครบขั้นตอน SOP</span>
+                          )}
+                        </td>
+                        <td className="p-3 sm:p-4">{inc.village}</td>
+                        <td className="p-4 text-slate-600">{inc.title}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
