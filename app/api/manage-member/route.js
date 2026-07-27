@@ -4,7 +4,7 @@
 // 1) การสร้างบัญชีใหม่ผ่าน client SDK จะทำให้ผู้ดูแลที่ login อยู่หลุดออกจากระบบทันที (ข้อจำกัดของ Firebase Auth)
 // 2) ต้องตรวจสอบ role ของผู้เรียกอย่างน่าเชื่อถือ ซึ่ง client ปลอมแปลงค่าที่ส่งมาเองได้
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/firebase/admin";
+import { adminAuth, adminDb, initError } from "@/firebase/admin";
 
 const requireAdmin = async (idToken) => {
   if (!idToken) {
@@ -32,7 +32,7 @@ const requireAdmin = async (idToken) => {
 export async function POST(request) {
   if (!adminAuth || !adminDb) {
     return NextResponse.json(
-      { success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK — ติดต่อผู้ดูแลระบบ" },
+      { success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK — ติดต่อผู้ดูแลระบบ", debug: initError },
       { status: 500 }
     );
   }

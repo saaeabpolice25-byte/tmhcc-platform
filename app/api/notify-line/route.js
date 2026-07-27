@@ -1,6 +1,6 @@
 // app/api/notify-line/route.js
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/firebase/admin";
+import { adminAuth, adminDb, initError } from "@/firebase/admin";
 
 const typeLabels = {
   SUICIDE_RISK: "เสี่ยงฆ่าตัวตาย",
@@ -113,7 +113,7 @@ const buildFlexMessage = (incident) => {
 
 export async function POST(request) {
   if (!adminAuth || !adminDb) {
-    return NextResponse.json({ success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK", debug: initError }, { status: 500 });
   }
 
   try {
