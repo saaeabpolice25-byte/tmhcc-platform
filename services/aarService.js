@@ -7,14 +7,26 @@ const toDate = (value) => {
   return typeof value.toDate === "function" ? value.toDate() : new Date(value);
 };
 
-const pad2 = (n) => String(n).padStart(2, "0");
-
 // รูปแบบ วัน/เดือน/ปี(ค.ศ.) ชั่วโมง:นาที เช่น 26/07/2026 14:02 — เก็บเป็น log ให้ตรวจสอบย้อนหลังได้
-// export ไว้ให้หน้าอื่น (รายละเอียดเหตุการณ์, dashboard) ใช้รูปแบบเดียวกัน
+// export ไว้ให้หน้าอื่น (รายละเอียดเหตุการณ์, dashboard, LINE webhook) ใช้รูปแบบเดียวกัน
+//
+// ใช้ Intl.DateTimeFormat ผูก timeZone: "Asia/Bangkok" ตรงๆ แทนการเรียก d.getHours()/d.getDate() เฉยๆ
+// เพราะ getHours()/getDate() คืนค่าตาม timezone ของเครื่องที่รันโค้ด — ฝั่งเบราว์เซอร์ในไทยบังเอิญตรงกับเวลาไทยอยู่แล้ว
+// แต่ฝั่ง server (Vercel serverless ใช้ UTC) จะได้เวลาเพี้ยนไป 7 ชั่วโมง (เช่น ตอนตอบกลับ LINE จาก line-webhook)
 export const formatDateTime = (value) => {
   const d = toDate(value);
   if (!d) return "";
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value || "00";
+  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
 };
 
 const statusLabel = (status) => {
