@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { db } from "@/firebase/config";
-import { doc, onSnapshot } from "firebase/firestore";
+import { useParams, useRouter } from "next/navigation";
+import { db, auth } from "@/firebase/config";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import TaskTable from "@/components/TaskTable";
 import { createConditionalTask } from "@/services/sopService";
 import { closeIncident, formatDateTime } from "@/services/aarService";
@@ -18,12 +18,29 @@ const getActorName = () => {
 
 export default function IncidentDetailPage() {
   const user = useRequireAuth();
+  const router = useRouter();
   const { id } = useParams();
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [closing, setClosing] = useState(false);
   const [callingPolice, setCallingPolice] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // เฉพาะบัญชี role=ADMIN เท่านั้นที่เห็นปุ่มลบเคส
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        setIsAdmin(snap.exists() && snap.data().role === "ADMIN");
+      } catch (error) {
+        console.error("Error checking admin role:", error);
+        setIsAdmin(false);
+      }
+    })();
+  }, [user]);
 
   // onSnapshot แทน getDoc ครั้งเดียว เพื่อให้เห็นสถานะ/AAR อัปเดตสดทันทีที่มีการเปลี่ยนแปลง
   // (เช่น โซ่ SOP ขยับไปหน่วยถัดไป หรือถูกปิดเหตุจากอีกเครื่อง) โดยไม่ต้อง refresh หน้าเอง
@@ -78,6 +95,29 @@ export default function IncidentDetailPage() {
     setClosing(false);
     if (!result.success) {
       alert("ปิดเหตุการณ์ไม่สำเร็จ: " + result.error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`ยืนยันลบเคส ${incident.id} ออกจากระบบถาวร?\n\nข้อมูลเหตุการณ์และภารกิจ SOP ทั้งหมดของเคสนี้จะหายไปและไม่สามารถกู้คืนได้`)) return;
+    setDeleting(true);
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const res = await fetch("/api/manage-incident", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, docId: incident.docId, incidentCode: incident.id }),
+      });
+      const result = await res.json().catch(() => ({ success: false, error: "การเชื่อมต่อผิดพลาด" }));
+      if (result.success) {
+        router.push("/dashboard");
+      } else {
+        alert("ลบไม่สำเร็จ: " + result.error);
+        setDeleting(false);
+      }
+    } catch (error) {
+      alert("ลบไม่สำเร็จ: " + error.message);
+      setDeleting(false);
     }
   };
 
@@ -144,6 +184,20 @@ export default function IncidentDetailPage() {
           <div className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
             <h3 className="font-bold text-slate-800 mb-3">📄 สรุปเหตุการณ์ (After Action Report)</h3>
             <pre className="whitespace-pre-wrap text-sm text-slate-600 font-sans">{incident.aar.summaryText}</pre>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="mt-8 bg-red-50 border border-red-200 rounded-2xl p-5">
+            <h3 className="font-bold text-red-700 mb-1 text-sm">⚠️ พื้นที่อันตราย (เฉพาะ Admin)</h3>
+            <p className="text-xs text-red-500 mb-3">ลบเคสนี้ออกจากระบบถาวร พร้อมภารกิจ SOP ทั้งหมดที่เกี่ยวข้อง — กู้คืนไม่ได้</p>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-xl text-sm font-bold hover:bg-red-100 transition disabled:opacity-40"
+            >
+              {deleting ? "กำลังลบ..." : "🗑️ ลบเคสนี้"}
+            </button>
           </div>
         )}
       </div>
