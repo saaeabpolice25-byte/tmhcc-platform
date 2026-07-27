@@ -8,6 +8,12 @@ import Link from "next/link";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 import { formatDateTime } from "@/services/aarService";
 
+const PSYCH_HISTORY_LABEL = {
+  HAS_HISTORY: "มีประวัติ",
+  NO_HISTORY: "ไม่มีประวัติ",
+  UNKNOWN: "ไม่ทราบ",
+};
+
 export default function DashboardPage() {
   const user = useRequireAuth();
   const [incidents, setIncidents] = useState([]);
@@ -137,6 +143,7 @@ export default function DashboardPage() {
                   <th className="p-3 sm:p-4">รหัสเคส</th>
                   <th className="p-3 sm:p-4">วันที่/เวลาแจ้งเหตุ</th>
                   <th className="p-3 sm:p-4">ผู้ป่วย</th>
+                  <th className="p-3 sm:p-4">ประวัติจิตเวช</th>
                   <th className="p-3 sm:p-4">ประเภท</th>
                   <th className="p-3 sm:p-4">ระดับ</th>
                   <th className="p-3 sm:p-4">กำลังดำเนินการที่</th>
@@ -147,7 +154,7 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {incidents.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="p-6 text-center text-slate-400">ยังไม่มีประวัติเหตุการณ์ในระบบ</td>
+                    <td colSpan="9" className="p-6 text-center text-slate-400">ยังไม่มีประวัติเหตุการณ์ในระบบ</td>
                   </tr>
                 ) : (
                   incidents.map((inc) => {
@@ -159,6 +166,7 @@ export default function DashboardPage() {
                         </td>
                         <td className="p-3 sm:p-4 text-slate-500 whitespace-nowrap">{formatDateTime(inc.createdAt)}</td>
                         <td className="p-3 sm:p-4">{inc.patientName || "-"}</td>
+                        <td className="p-3 sm:p-4">{PSYCH_HISTORY_LABEL[inc.psychHistory] || "ไม่ทราบ"}</td>
                         <td className="p-3 sm:p-4">{inc.type}</td>
                         <td className="p-3 sm:p-4">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${

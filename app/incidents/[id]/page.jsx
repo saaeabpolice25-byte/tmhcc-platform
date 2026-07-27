@@ -16,6 +16,20 @@ const getActorName = () => {
   return localStorage.getItem("userName") || "ไม่ระบุชื่อ";
 };
 
+const TYPE_LABEL = {
+  SUICIDE_RISK: "เสี่ยงฆ่าตัวตาย",
+  CRAZED: "คลุ้มคลั่ง",
+  DRUGS: "ยาเสพติด",
+  MISSING_MEDS: "ขาดยา",
+  RELAPSE: "อาการกำเริบ",
+};
+
+const PSYCH_HISTORY_LABEL = {
+  HAS_HISTORY: "มีประวัติการรักษาทางจิตเวช",
+  NO_HISTORY: "ไม่มีประวัติการรักษาทางจิตเวช",
+  UNKNOWN: "ไม่ทราบ",
+};
+
 export default function IncidentDetailPage() {
   const user = useRequireAuth();
   const router = useRouter();
@@ -128,35 +142,56 @@ export default function IncidentDetailPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-        <header className="mb-6 border-b pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800">เหตุการณ์ {incident.id}</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              แจ้งเหตุเมื่อ {formatDateTime(incident.createdAt)}
-              {incident.patientName ? ` · ผู้ป่วย: ${incident.patientName}` : ""}
-            </p>
-            <p className="text-sm text-slate-500">
-              {incident.title} · {incident.village}
-              {incident.location && incident.location.lat && (
-                <>
-                  {" · "}
+        <header className="mb-6 border-b pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-800">เหตุการณ์ {incident.id}</h1>
+              <p className="text-xs text-slate-400 mt-0.5">แจ้งเหตุเมื่อ {formatDateTime(incident.createdAt)}</p>
+            </div>
+            <span className={`self-start sm:self-auto px-2.5 py-1 rounded-full text-xs font-bold ${
+              incident.status === "CLOSED" ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-700"
+            }`}>
+              {incident.status === "CLOSED" ? "ปิดเหตุแล้ว" : "กำลังดำเนินการ"}
+            </span>
+          </div>
+
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div>
+              <dt className="text-xs font-semibold text-slate-400">ประเภท</dt>
+              <dd className="text-slate-700">{TYPE_LABEL[incident.type] || incident.type || "-"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-slate-400">ผู้ป่วย</dt>
+              <dd className="text-slate-700">{incident.patientName || "ไม่ระบุ"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-slate-400">ประวัติการรักษาทางจิตเวช</dt>
+              <dd className="text-slate-700">{PSYCH_HISTORY_LABEL[incident.psychHistory] || "ไม่ทราบ"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold text-slate-400">พื้นที่</dt>
+              <dd className="text-slate-700">{incident.village}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-semibold text-slate-400">รายละเอียด</dt>
+              <dd className="text-slate-700">{incident.title}</dd>
+            </div>
+            {incident.location && incident.location.lat && (
+              <div>
+                <dt className="text-xs font-semibold text-slate-400">ตำแหน่ง</dt>
+                <dd>
                   <a
                     href={`https://www.google.com/maps?q=${incident.location.lat},${incident.location.lng}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"
                   >
-                    📍 เปิดแผนที่
+                    📍 เปิดแผนที่ไปที่เกิดเหตุ
                   </a>
-                </>
-              )}
-            </p>
-          </div>
-          <span className={`self-start sm:self-auto px-2.5 py-1 rounded-full text-xs font-bold ${
-            incident.status === "CLOSED" ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-700"
-          }`}>
-            {incident.status === "CLOSED" ? "ปิดเหตุแล้ว" : "กำลังดำเนินการ"}
-          </span>
+                </dd>
+              </div>
+            )}
+          </dl>
         </header>
 
         {incident.status !== "CLOSED" && (

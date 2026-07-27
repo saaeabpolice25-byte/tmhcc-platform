@@ -14,6 +14,12 @@ const incidentTypes = [
   { id: "RELAPSE", label: "อาการกำเริบ", defaultTitle: "อาการทางจิตเวชกำเริบ" },
 ];
 
+const psychHistoryOptions = [
+  { id: "HAS_HISTORY", label: "มีประวัติการรักษาทางจิตเวช" },
+  { id: "NO_HISTORY", label: "ไม่มีประวัติการรักษาทางจิตเวช" },
+  { id: "UNKNOWN", label: "ไม่ทราบ" },
+];
+
 // ฟอร์มนี้ตั้งใจให้เรียงลำดับฟิลด์เหมือนกับฟอร์ม LIFF (app/liff/report) ทุกประการ
 // ประเภท -> ชื่อผู้ป่วย -> รายละเอียด -> ระดับ -> หมู่บ้าน -> แนบตำแหน่ง -> ส่ง
 export default function IncidentsPage() {
@@ -21,6 +27,7 @@ export default function IncidentsPage() {
   const router = useRouter();
   const [selectedType, setSelectedType] = useState("SUICIDE_RISK");
   const [patientName, setPatientName] = useState("");
+  const [psychHistory, setPsychHistory] = useState("UNKNOWN");
   const [title, setTitle] = useState("ผู้มีภาวะเสี่ยงฆ่าตัวตาย");
   const [level, setLevel] = useState("RED");
   const [village, setVillage] = useState("หมู่ 3");
@@ -65,6 +72,7 @@ export default function IncidentsPage() {
     const result = await createIncident({
       type: selectedType,
       patientName,
+      psychHistory,
       title,
       level,
       village,
@@ -133,6 +141,26 @@ export default function IncidentsPage() {
             placeholder="เช่น นาย ก. (หรือไม่ระบุก็ได้)"
             className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">ประวัติการรักษาทางจิตเวช</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {psychHistoryOptions.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                onClick={() => setPsychHistory(item.id)}
+                className={`p-3 text-left border rounded-xl text-sm font-medium transition-all ${
+                  psychHistory === item.id
+                    ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                ☑ {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>

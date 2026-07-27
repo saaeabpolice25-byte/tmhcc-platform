@@ -60,6 +60,10 @@ const handlePostback = async (event, origin) => {
   const task = taskSnap.data();
   if (task.status === "COMPLETED") return; // กันกดซ้ำ
 
+  // กันกรณีเหตุการณ์ถูกปิด (สร้างสรุป AAR) ไปแล้ว แต่ข้อความเก่าในกลุ่มยังมีปุ่มค้างอยู่
+  const incidentSnap = await getDocs(query(collection(db, "incidents"), where("id", "==", task.incidentId), limit(1)));
+  if (!incidentSnap.empty && incidentSnap.docs[0].data().status === "CLOSED") return;
+
   const actor = await fetchActorName(event.source);
   const now = new Date();
 

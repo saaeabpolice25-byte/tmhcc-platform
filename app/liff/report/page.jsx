@@ -11,6 +11,12 @@ const incidentTypes = [
   { id: "RELAPSE", label: "อาการกำเริบ", defaultTitle: "อาการทางจิตเวชกำเริบ" },
 ];
 
+const psychHistoryOptions = [
+  { id: "HAS_HISTORY", label: "มีประวัติการรักษาทางจิตเวช" },
+  { id: "NO_HISTORY", label: "ไม่มีประวัติการรักษาทางจิตเวช" },
+  { id: "UNKNOWN", label: "ไม่ทราบ" },
+];
+
 export default function LiffReportPage() {
   const [liffObj, setLiffObj] = useState(null);
   const [liffError, setLiffError] = useState("");
@@ -18,6 +24,7 @@ export default function LiffReportPage() {
 
   const [selectedType, setSelectedType] = useState("SUICIDE_RISK");
   const [patientName, setPatientName] = useState("");
+  const [psychHistory, setPsychHistory] = useState("UNKNOWN");
   const [title, setTitle] = useState("ผู้มีภาวะเสี่ยงฆ่าตัวตาย");
   const [level, setLevel] = useState("RED");
   const [village, setVillage] = useState("");
@@ -103,6 +110,7 @@ export default function LiffReportPage() {
           accessToken,
           type: selectedType,
           patientName,
+          psychHistory,
           title,
           level,
           village: village || "ไม่ระบุ",
@@ -189,6 +197,26 @@ export default function LiffReportPage() {
               placeholder="เช่น นาย ก. (หรือไม่ระบุก็ได้)"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-2">ประวัติการรักษาทางจิตเวช</label>
+            <div className="grid grid-cols-1 gap-2">
+              {psychHistoryOptions.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => setPsychHistory(item.id)}
+                  className={`p-2 text-left border rounded-xl text-xs font-medium transition-all ${
+                    psychHistory === item.id
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-700"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>

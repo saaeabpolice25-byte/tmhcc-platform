@@ -30,6 +30,7 @@ export const sendTaskNotification = async (incident, task, baseUrl = "", interna
         village: incident.village,
         title: incident.title,
         patientName: incident.patientName || "",
+        psychHistory: incident.psychHistory || "",
         location: incident.location || null,
         taskId: task.taskId,
         unitCode: task.unitCode,

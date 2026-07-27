@@ -23,7 +23,7 @@ const verifyLiffAccessToken = async (accessToken) => {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { accessToken, type, patientName, title, level, village, location, lineUserId, lineDisplayName } = body;
+    const { accessToken, type, patientName, psychHistory, title, level, village, location, lineUserId, lineDisplayName } = body;
 
     if (!(await verifyLiffAccessToken(accessToken))) {
       return NextResponse.json({ success: false, error: "ยืนยันตัวตนจาก LINE ไม่สำเร็จ กรุณาเปิดฟอร์มนี้ผ่านปุ่มในกลุ่ม LINE ใหม่อีกครั้ง" }, { status: 401 });
@@ -40,6 +40,7 @@ export async function POST(request) {
       {
         type,
         patientName,
+        psychHistory,
         title,
         level,
         village,

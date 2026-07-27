@@ -14,6 +14,12 @@ const LEVEL_COLOR = { RED: "#DC2626", ORANGE: "#EA580C", YELLOW: "#CA8A04" };
 const LEVEL_EMOJI = { RED: "🔴", ORANGE: "🟠", YELLOW: "🟡" };
 const LEVEL_LABEL = { RED: "วิกฤต", ORANGE: "เร่งด่วน", YELLOW: "ติดตามอาการ" };
 
+const PSYCH_HISTORY_LABEL = {
+  HAS_HISTORY: "มีประวัติการรักษาทางจิตเวช",
+  NO_HISTORY: "ไม่มีประวัติการรักษาทางจิตเวช",
+  UNKNOWN: "ไม่ทราบ",
+};
+
 // ผู้เรียกต้องเป็นอย่างใดอย่างหนึ่ง: (1) ผู้ใช้ที่ login จริงในเว็บ (ส่ง idToken มา)
 // (2) เซิร์ฟเวอร์ของเราเอง (line-webhook / liff-report ที่ตรวจสอบผู้ส่งมาแล้วชั้นหนึ่ง — ส่ง internalSecret มาแทน)
 // ป้องกันไม่ให้ใครก็ได้ที่รู้ URL นี้ยิงเข้ามาสั่งให้ระบบส่งข้อความเท็จเข้ากลุ่ม LINE จริง
@@ -33,8 +39,9 @@ const verifyCaller = async (idToken, internalSecret) => {
 };
 
 const buildFlexMessage = (incident) => {
-  const { incidentCode, type, level, village, title, patientName, taskId, unitCode, unit, task, location } = incident;
+  const { incidentCode, type, level, village, title, patientName, psychHistory, taskId, unitCode, unit, task, location } = incident;
   const thaiType = typeLabels[type] || type;
+  const psychLabel = PSYCH_HISTORY_LABEL[psychHistory] || null;
   const color = LEVEL_COLOR[level] || LEVEL_COLOR.YELLOW;
   const emoji = LEVEL_EMOJI[level] || "🟡";
   const levelLabel = LEVEL_LABEL[level] || level;
@@ -94,6 +101,7 @@ const buildFlexMessage = (incident) => {
         contents: [
           { type: "text", text: `ประเภท: ${thaiType}`, size: "sm", wrap: true, color: "#475569" },
           ...(patientName ? [{ type: "text", text: `ผู้ป่วย: ${patientName}`, size: "sm", wrap: true, color: "#475569" }] : []),
+          ...(psychLabel ? [{ type: "text", text: `ประวัติจิตเวช: ${psychLabel}`, size: "sm", wrap: true, color: "#475569" }] : []),
           { type: "text", text: `พื้นที่: ${village}`, size: "sm", wrap: true, color: "#475569" },
           { type: "text", text: `รายละเอียด: ${title}`, size: "sm", wrap: true, color: "#475569" },
           { type: "separator", margin: "md" },

@@ -15,6 +15,7 @@ const UNIT_FILTERS = ["ALL", "ผู้ใหญ่บ้าน", "อสม.", 
 export default function TaskTable({ incidentId }) {
   const user = useRequireAuth();
   const [tasks, setTasks] = useState([]);
+  const [closedIncidentIds, setClosedIncidentIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [selectedUnit, setSelectedUnit] = useState("ALL");
 
@@ -44,6 +45,25 @@ export default function TaskTable({ incidentId }) {
     return () => unsubscribe();
   }, [user, incidentId]);
 
+  // เฝ้าดูสถานะ "ปิดเหตุแล้ว" ของทุกเหตุการณ์ เพื่อล็อกปุ่มของ task ที่เคสถูกปิดไปแล้ว
+  // แม้ task นั้นเองจะยังไม่ถูกกดเสร็จสิ้นเป็นรายตัวก็ตาม (เช่น แอดมินปิดเหตุคาไว้)
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(
+      collection(db, "incidents"),
+      (snapshot) => {
+        const closed = new Set();
+        snapshot.forEach((d) => {
+          const data = d.data();
+          if (data.status === "CLOSED") closed.add(data.id);
+        });
+        setClosedIncidentIds(closed);
+      },
+      (error) => console.error("Error watching incidents (closed status):", error)
+    );
+    return () => unsubscribe();
+  }, [user]);
+
   const filteredTasks = selectedUnit === "ALL" ? tasks : tasks.filter((t) => t.unit === selectedUnit);
 
   const getActorName = () => {
@@ -52,6 +72,10 @@ export default function TaskTable({ incidentId }) {
   };
 
   const handleUpdateStatus = async (task, newStatus) => {
+    if (task.status === "COMPLETED" || closedIncidentIds.has(task.incidentId)) {
+      alert("ภารกิจนี้เสร็จสิ้นแล้วหรือเหตุการณ์นี้ถูกปิดไปแล้ว ไม่สามารถแก้ไขสถานะซ้ำได้");
+      return;
+    }
     try {
       const actor = getActorName();
       const now = new Date();
@@ -158,7 +182,7 @@ export default function TaskTable({ incidentId }) {
                     </span>
                   </td>
                   <td className="p-3 sm:p-4 text-center space-x-2">
-                    {t.status !== "COMPLETED" ? (
+                    {t.status !== "COMPLETED" && !closedIncidentIds.has(t.incidentId) ? (
                       <>
                         {t.status !== "IN_PROGRESS" && (
                           <button
@@ -177,7 +201,9 @@ export default function TaskTable({ incidentId }) {
                       </>
                     ) : (
                       <span className="text-xs text-slate-400">
-                        เสร็จสิ้นแล้ว{t.completedBy ? ` โดย ${t.completedBy}` : ""}
+                        {t.status === "COMPLETED"
+                          ? `เสร็จสิ้นแล้ว${t.completedBy ? ` โดย ${t.completedBy}` : ""}`
+                          : "ปิดเหตุแล้ว — ไม่รับดำเนินการเพิ่ม"}
                       </span>
                     )}
                   </td>
