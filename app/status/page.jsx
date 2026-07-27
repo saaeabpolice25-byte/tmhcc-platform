@@ -55,7 +55,6 @@ export default function PublicStatusPage() {
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <header className="mb-6 sm:mb-8 text-center">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">📡 สถานะภาพรวมระบบเฝ้าระวังสุขภาพจิตตำบล</h1>
-          <p className="text-sm text-slate-500 mt-2">TMHCC Platform — หน้าสถานะสาธารณะ แสดงเฉพาะภาพรวม ไม่มีข้อมูลส่วนบุคคลของผู้ป่วย</p>
         </header>
 
         <section className="mb-8">
@@ -101,9 +100,38 @@ export default function PublicStatusPage() {
           </div>
         </section>
 
-        <p className="text-center text-xs text-slate-400">
-          อัปเดตล่าสุด: {formatUpdatedAt(data.updatedAt)} · ข้อมูลรีเฟรชอัตโนมัติทุก 20 วินาที
-        </p>
+        {data.typeCounts && data.typeCounts.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-base sm:text-lg font-bold text-slate-700 mb-4 text-center">ประเภทเหตุการณ์ (เคสที่กำลังเฝ้าระวัง)</h2>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              {data.typeCounts.map((t, i) => (
+                <div
+                  key={t.type}
+                  className={`flex items-center justify-between px-5 py-3 text-sm ${i !== 0 ? "border-t border-slate-100" : ""}`}
+                >
+                  <span className="text-slate-600">{t.type}</span>
+                  <span className="font-bold text-slate-800">{t.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.villageCounts && data.villageCounts.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-base sm:text-lg font-bold text-slate-700 mb-4 text-center">พื้นที่ (หมู่ที่) ของเคสที่กำลังเฝ้าระวัง</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {data.villageCounts.map((v) => (
+                <div key={v.village} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm text-center">
+                  <p className="text-xs font-semibold text-slate-500">{v.village}</p>
+                  <p className="text-2xl font-bold text-slate-800 mt-1">{v.count}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <p className="text-center text-xs text-slate-400">อัปเดตล่าสุด: {formatUpdatedAt(data.updatedAt)}</p>
       </div>
     </div>
   );

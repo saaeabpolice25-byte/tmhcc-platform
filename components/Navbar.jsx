@@ -18,6 +18,9 @@ export default function Navbar() {
     return () => unsubscribe();
   }, []);
 
+  // หน้าสถานะสาธารณะ (/status) ไม่ต้องมี navbar เลย เพราะเปิดให้คนภายนอกดูโดยไม่ต้อง login
+  if (pathname === "/status") return null;
+
   const navLinks = [
     { href: "/dashboard", label: "📊 แดชบอร์ด" },
     { href: "/incidents", label: "🚨 เปิดเหตุ" },

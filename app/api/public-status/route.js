@@ -7,6 +7,14 @@ import { adminDb } from "@/firebase/admin";
 
 const UNIT_ORDER = ["อสม.", "รพ.สต.", "โรงพยาบาล", "EMS"];
 
+const TYPE_LABELS = {
+  SUICIDE_RISK: "เสี่ยงฆ่าตัวตาย",
+  CRAZED: "คลุ้มคลั่ง",
+  DRUGS: "ยาเสพติด",
+  MISSING_MEDS: "ขาดยา",
+  RELAPSE: "อาการกำเริบ",
+};
+
 export async function GET() {
   if (!adminDb) {
     return NextResponse.json({ success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK" }, { status: 500 });
@@ -19,14 +27,22 @@ export async function GET() {
     ]);
 
     const levels = { RED: 0, ORANGE: 0, YELLOW: 0 };
+    const typeCounts = {};
+    const villageCounts = {};
     let closed = 0;
     incidentsSnap.docs.forEach((d) => {
       const data = d.data();
       if (data.status === "CLOSED") {
         closed += 1;
-      } else if (levels[data.level] !== undefined) {
+        return;
+      }
+      if (levels[data.level] !== undefined) {
         levels[data.level] += 1;
       }
+      const typeLabel = TYPE_LABELS[data.type] || data.type || "ไม่ระบุ";
+      typeCounts[typeLabel] = (typeCounts[typeLabel] || 0) + 1;
+      const village = data.village || "ไม่ระบุ";
+      villageCounts[village] = (villageCounts[village] || 0) + 1;
     });
     const active = levels.RED + levels.ORANGE + levels.YELLOW;
 
@@ -44,6 +60,12 @@ export async function GET() {
       levels,
       totals: { active, closed, all: active + closed },
       pendingByUnit: UNIT_ORDER.map((unit) => ({ unit, count: pendingCounts[unit] })),
+      typeCounts: Object.entries(typeCounts)
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count),
+      villageCounts: Object.entries(villageCounts)
+        .map(([village, count]) => ({ village, count }))
+        .sort((a, b) => b.count - a.count),
     });
   } catch (error) {
     console.error("public-status error:", error);
