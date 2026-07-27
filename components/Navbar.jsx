@@ -22,6 +22,7 @@ export default function Navbar() {
     { href: "/dashboard", label: "📊 แดชบอร์ด" },
     { href: "/incidents", label: "🚨 เปิดเหตุ" },
     { href: "/sop", label: "📋 ติดตาม SOP" },
+    { href: "/status", label: "📡 สถานะสาธารณะ" },
   ];
 
   const handleLogout = async () => {
