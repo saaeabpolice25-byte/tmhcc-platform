@@ -1,19 +1,31 @@
 rules_version = '2';
 
 // เข้าถึงข้อมูลได้ต่อเมื่อ login ผ่าน Firebase Auth แล้วเท่านั้น (ปิดการเข้าถึงแบบสาธารณะทั้งหมด)
-// หมายเหตุ: ยังไม่ได้แยกสิทธิ์ตาม role (VHV/HOSPITAL/ADMIN) — ทุกคนที่ login แล้วเข้าถึงได้เท่ากันหมด
+// users / units แก้ไขได้เฉพาะ role=ADMIN เท่านั้น (incidents/tasks ยังเปิดให้ทุก role ที่ login แล้ว
+// อ่าน/เขียนได้เท่ากัน เพราะทุกหน่วยงานต้องอัปเดตสถานะงานของตัวเองได้)
 service cloud.firestore {
   match /databases/{database}/documents {
-    // อนุญาตให้ "อ่าน" collection units แบบไม่ต้อง login ได้ (แค่ Group ID เชื่อมกลุ่ม LINE
-    // ไม่ใช่ข้อมูลเคส/ผู้ป่วย) เพื่อให้ API route (app/api/notify-line, line-webhook) ที่ยังใช้
-    // Firestore client SDK แบบไม่ผูก service account อ่านค่านี้ได้โดยไม่ต้องตั้ง Firebase Admin SDK เพิ่ม
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN";
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /units/{unitCode} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isSignedIn();
     }
   }
 }

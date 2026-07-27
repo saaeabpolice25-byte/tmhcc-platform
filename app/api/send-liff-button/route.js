@@ -1,24 +1,30 @@
 // app/api/send-liff-button/route.js
 // ส่ง Flex message ปุ่ม "เปิดเหตุฉุกเฉิน" (ลิงก์ LIFF) เข้ากลุ่ม LINE ของหน่วยงานที่ระบุ
-// กดจากหน้า /units — หลังส่งแล้วให้คนในกลุ่มกดค้างที่ข้อความ > ปักหมุด เพื่อไม่ให้หายไปในประวัติแชท
+// กดจากหน้า /units (เฉพาะ ADMIN) — หลังส่งแล้วให้คนในกลุ่มกดค้างที่ข้อความ > ปักหมุด เพื่อไม่ให้หายไปในประวัติแชท
 import { NextResponse } from "next/server";
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAxFBGjS9VB8H6bd5I_b7R25eLZIm4YZss",
-  authDomain: "tmhcc-platform.firebaseapp.com",
-  projectId: "tmhcc-platform",
-  storageBucket: "tmhcc-platform.firebasestorage.app",
-  messagingSenderId: "978696478225",
-  appId: "1:978696478225:web:2695b1f6635c28c6f89bb0",
-};
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+import { adminAuth, adminDb } from "@/firebase/admin";
 
 export async function POST(request) {
+  if (!adminAuth || !adminDb) {
+    return NextResponse.json({ success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK" }, { status: 500 });
+  }
+
   try {
-    const { unitCode } = await request.json();
+    const { idToken, unitCode } = await request.json();
+
+    if (!idToken) {
+      return NextResponse.json({ success: false, error: "ไม่ได้ล็อกอิน" }, { status: 401 });
+    }
+    let decoded;
+    try {
+      decoded = await adminAuth.verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ success: false, error: "เซสชันไม่ถูกต้อง กรุณาล็อกอินใหม่" }, { status: 401 });
+    }
+    const callerSnap = await adminDb.collection("users").doc(decoded.uid).get();
+    if (!callerSnap.exists || callerSnap.data().role !== "ADMIN") {
+      return NextResponse.json({ success: false, error: "เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่ทำรายการนี้ได้" }, { status: 403 });
+    }
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -29,8 +35,8 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "ยังไม่ได้ตั้งค่า NEXT_PUBLIC_LIFF_ID" }, { status: 500 });
     }
 
-    const unitSnap = await getDoc(doc(db, "units", unitCode));
-    const unitData = unitSnap.exists() ? unitSnap.data() : null;
+    const unitSnap = await adminDb.collection("units").doc(unitCode).get();
+    const unitData = unitSnap.exists ? unitSnap.data() : null;
     if (!unitData || !unitData.active || !unitData.lineGroupId) {
       return NextResponse.json({ success: false, error: "หน่วยนี้ยังไม่มี LINE Group ID" }, { status: 400 });
     }

@@ -85,6 +85,7 @@ export default function LiffReportPage() {
     try {
       let profile = { userId: null, displayName: "ผู้ใหญ่บ้าน (LINE)" };
       let context = null;
+      let accessToken = null;
       if (liffObj) {
         try {
           profile = await liffObj.getProfile();
@@ -92,12 +93,14 @@ export default function LiffReportPage() {
           // เปิดนอกแอป LINE หรือดึงโปรไฟล์ไม่ได้ ใช้ค่า default แทน
         }
         context = liffObj.getContext ? liffObj.getContext() : null;
+        accessToken = liffObj.getAccessToken ? liffObj.getAccessToken() : null;
       }
 
       const res = await fetch("/api/liff-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          accessToken,
           type: selectedType,
           patientName,
           title,

@@ -27,8 +27,9 @@ const generateIncidentId = async () => {
   return `INC-${currentYear}-${paddedNum}`;
 };
 
-// ฟังก์ชันเปิดเหตุใหม่ — ใช้ได้ทั้งจากหน้าเว็บ (baseUrl ว่าง) และจาก server route อื่น เช่น LIFF (ใส่ origin เต็ม)
-export const createIncident = async (incidentData, baseUrl = "") => {
+// ฟังก์ชันเปิดเหตุใหม่ — ใช้ได้ทั้งจากหน้าเว็บ (baseUrl ว่าง) และจาก server route อื่น เช่น LIFF
+// (ใส่ origin เต็ม + internalSecret เพื่อยืนยันกับ /api/notify-line ว่าเรียกจาก server ที่เชื่อถือได้)
+export const createIncident = async (incidentData, baseUrl = "", internalSecret = null) => {
   try {
     const newId = await generateIncidentId();
 
@@ -54,7 +55,7 @@ export const createIncident = async (incidentData, baseUrl = "") => {
     const sopResult = await createSopTasksForIncident(newId);
 
     // 3. ส่งแจ้งเตือนผ่าน LINE OA ไปยังกลุ่มของหน่วยงานที่รับผิดชอบขั้นแรก
-    await sendTaskNotifications(payload, sopResult.tasks || [], baseUrl);
+    await sendTaskNotifications(payload, sopResult.tasks || [], baseUrl, internalSecret);
 
     return { success: true, id: newId, docId: incidentRef.id };
   } catch (error) {

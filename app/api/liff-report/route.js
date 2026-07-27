@@ -5,10 +5,29 @@ import { NextResponse } from "next/server";
 import { ensureServerAuth } from "@/firebase/serverAuth";
 import { createIncident } from "@/services/incidentService";
 
+// ตรวจสอบกับ LINE เองว่า accessToken ที่ส่งมาเป็นของจริง และออกให้กับ LIFF/ช่องของเราเท่านั้น
+// ป้องกันไม่ให้ใครก็ได้ที่รู้ URL นี้ปลอมข้อมูลเหตุการณ์ส่งเข้ามาตรงๆ โดยไม่ผ่าน LINE จริง
+const verifyLiffAccessToken = async (accessToken) => {
+  if (!accessToken) return false;
+  try {
+    const res = await fetch(`https://api.line.me/oauth2/v2.1/verify?access_token=${encodeURIComponent(accessToken)}`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    const expectedChannelId = (process.env.NEXT_PUBLIC_LIFF_ID || "").split("-")[0];
+    return Boolean(expectedChannelId) && String(data.client_id) === expectedChannelId;
+  } catch {
+    return false;
+  }
+};
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { type, patientName, title, level, village, location, lineUserId, lineDisplayName } = body;
+    const { accessToken, type, patientName, title, level, village, location, lineUserId, lineDisplayName } = body;
+
+    if (!(await verifyLiffAccessToken(accessToken))) {
+      return NextResponse.json({ success: false, error: "ยืนยันตัวตนจาก LINE ไม่สำเร็จ กรุณาเปิดฟอร์มนี้ผ่านปุ่มในกลุ่ม LINE ใหม่อีกครั้ง" }, { status: 401 });
+    }
 
     if (!type || !title || !level) {
       return NextResponse.json({ success: false, error: "ข้อมูลไม่ครบ" }, { status: 400 });
@@ -29,7 +48,8 @@ export async function POST(request) {
         createdByLineUserId: lineUserId || null,
         reportedVia: "LIFF",
       },
-      origin
+      origin,
+      process.env.INTERNAL_API_SECRET
     );
 
     if (!result.success) {

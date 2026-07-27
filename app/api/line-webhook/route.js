@@ -89,7 +89,7 @@ const handlePostback = async (event, origin) => {
     if (advanceResult.success && advanceResult.task) {
       const incSnap = await getDocs(query(collection(db, "incidents"), where("id", "==", task.incidentId), limit(1)));
       if (!incSnap.empty) {
-        await sendTaskNotification(incSnap.docs[0].data(), advanceResult.task, origin);
+        await sendTaskNotification(incSnap.docs[0].data(), advanceResult.task, origin, process.env.INTERNAL_API_SECRET);
       }
     }
   }

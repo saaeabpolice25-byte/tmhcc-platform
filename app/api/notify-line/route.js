@@ -1,18 +1,6 @@
 // app/api/notify-line/route.js
 import { NextResponse } from "next/server";
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAxFBGjS9VB8H6bd5I_b7R25eLZIm4YZss",
-  authDomain: "tmhcc-platform.firebaseapp.com",
-  projectId: "tmhcc-platform",
-  storageBucket: "tmhcc-platform.firebasestorage.app",
-  messagingSenderId: "978696478225",
-  appId: "1:978696478225:web:2695b1f6635c28c6f89bb0",
-};
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+import { adminAuth, adminDb } from "@/firebase/admin";
 
 const typeLabels = {
   SUICIDE_RISK: "เสี่ยงฆ่าตัวตาย",
@@ -25,6 +13,24 @@ const typeLabels = {
 const LEVEL_COLOR = { RED: "#DC2626", ORANGE: "#EA580C", YELLOW: "#CA8A04" };
 const LEVEL_EMOJI = { RED: "🔴", ORANGE: "🟠", YELLOW: "🟡" };
 const LEVEL_LABEL = { RED: "วิกฤต", ORANGE: "เร่งด่วน", YELLOW: "ติดตามอาการ" };
+
+// ผู้เรียกต้องเป็นอย่างใดอย่างหนึ่ง: (1) ผู้ใช้ที่ login จริงในเว็บ (ส่ง idToken มา)
+// (2) เซิร์ฟเวอร์ของเราเอง (line-webhook / liff-report ที่ตรวจสอบผู้ส่งมาแล้วชั้นหนึ่ง — ส่ง internalSecret มาแทน)
+// ป้องกันไม่ให้ใครก็ได้ที่รู้ URL นี้ยิงเข้ามาสั่งให้ระบบส่งข้อความเท็จเข้ากลุ่ม LINE จริง
+const verifyCaller = async (idToken, internalSecret) => {
+  if (internalSecret && process.env.INTERNAL_API_SECRET && internalSecret === process.env.INTERNAL_API_SECRET) {
+    return true;
+  }
+  if (idToken) {
+    try {
+      await adminAuth.verifyIdToken(idToken);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
 
 const buildFlexMessage = (incident) => {
   const { incidentCode, type, level, village, title, patientName, taskId, unitCode, unit, task, location } = incident;
@@ -106,9 +112,18 @@ const buildFlexMessage = (incident) => {
 };
 
 export async function POST(request) {
+  if (!adminAuth || !adminDb) {
+    return NextResponse.json({ success: false, error: "ระบบยังไม่ได้ตั้งค่า Firebase Admin SDK" }, { status: 500 });
+  }
+
   try {
     const body = await request.json();
-    const { unitCode } = body;
+    const { unitCode, idToken, internalSecret } = body;
+
+    const authorized = await verifyCaller(idToken, internalSecret);
+    if (!authorized) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     if (!channelAccessToken) {
@@ -116,9 +131,9 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Missing LINE_CHANNEL_ACCESS_TOKEN" }, { status: 500 });
     }
 
-    // อ่าน Group ID ของหน่วยงานจาก collection "units" (อ่านได้แบบไม่ต้อง login ตาม firestore.rules)
-    const unitSnap = await getDoc(doc(db, "units", unitCode));
-    const unitData = unitSnap.exists() ? unitSnap.data() : null;
+    // อ่าน Group ID ของหน่วยงานผ่าน Admin SDK (bypass rules ได้ ไม่ต้องพึ่ง public-read บน units อีกต่อไป)
+    const unitSnap = await adminDb.collection("units").doc(unitCode).get();
+    const unitData = unitSnap.exists ? unitSnap.data() : null;
 
     if (!unitData || !unitData.active || !unitData.lineGroupId) {
       console.warn(`หน่วย ${unitCode} ยังไม่มี LINE Group ID หรือปิดใช้งานอยู่ — ข้ามการแจ้งเตือน`);

@@ -2,22 +2,37 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db } from "@/firebase/config";
-import { collection, onSnapshot } from "firebase/firestore";
+import { db, auth } from "@/firebase/config";
+import { collection, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { ensureUnitsSeeded, updateUnitLineGroup } from "@/services/unitService";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
 export default function UnitsPage() {
   const user = useRequireAuth();
+  const [isAdmin, setIsAdmin] = useState(null); // null = กำลังตรวจสอบ
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingCode, setSavingCode] = useState(null);
   const [sendingButtonCode, setSendingButtonCode] = useState(null);
 
+  // เฉพาะบัญชี role=ADMIN เท่านั้นที่เข้าหน้านี้ได้ (ควบคุมว่าแจ้งเตือนฉุกเฉินจะถูกส่งไปที่กลุ่มไหน)
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        setIsAdmin(snap.exists() && snap.data().role === "ADMIN");
+      } catch (error) {
+        console.error("Error checking admin role:", error);
+        setIsAdmin(false);
+      }
+    })();
+  }, [user]);
+
   // ensureUnitsSeeded รันครั้งเดียวตอนเข้าเพื่อสร้าง 6 หน่วยเริ่มต้นถ้ายังไม่มี จากนั้นฟัง onSnapshot
   // ต่อเนื่อง ให้เห็น Group ID ที่คนอื่นกรอกจากเครื่องอื่นอัปเดตสดโดยไม่ต้อง refresh
   useEffect(() => {
-    if (!user) return;
+    if (!isAdmin) return;
     let unsubscribe;
     (async () => {
       await ensureUnitsSeeded();
@@ -38,7 +53,7 @@ export default function UnitsPage() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [user]);
+  }, [isAdmin]);
 
   const handleSave = async (unitCode, lineGroupId, active) => {
     setSavingCode(unitCode);
@@ -49,10 +64,11 @@ export default function UnitsPage() {
 
   const handleSendLiffButton = async (unitCode) => {
     setSendingButtonCode(unitCode);
+    const idToken = await auth.currentUser.getIdToken();
     const res = await fetch("/api/send-liff-button", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unitCode }),
+      body: JSON.stringify({ idToken, unitCode }),
     });
     const result = await res.json().catch(() => ({}));
     setSendingButtonCode(null);
@@ -64,6 +80,16 @@ export default function UnitsPage() {
   };
 
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
+  if (isAdmin === null) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</div>;
+  if (!isAdmin) {
+    return (
+      <div className="p-6 max-w-lg mx-auto">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+          หน้านี้จำกัดให้เฉพาะผู้ดูแลระบบ (Admin) เท่านั้น
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
