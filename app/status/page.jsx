@@ -75,6 +75,23 @@ export default function PublicStatusPage() {
           </div>
         </section>
 
+        {data.closedTypeCounts && data.closedTypeCounts.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-base sm:text-lg font-bold text-slate-700 mb-4 text-center">เคสที่แล้วเสร็จ/ปิดเคส แยกตามประเภท</h2>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              {data.closedTypeCounts.map((t, i) => (
+                <div
+                  key={t.type}
+                  className={`flex items-center justify-between px-5 py-3 text-sm ${i !== 0 ? "border-t border-slate-100" : ""}`}
+                >
+                  <span className="text-slate-600">{t.type}</span>
+                  <span className="font-bold text-slate-800">{t.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="mb-8">
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-center">

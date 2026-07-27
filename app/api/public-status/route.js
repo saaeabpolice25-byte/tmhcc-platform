@@ -29,17 +29,19 @@ export async function GET() {
     const levels = { RED: 0, ORANGE: 0, YELLOW: 0 };
     const typeCounts = {};
     const villageCounts = {};
+    const closedTypeCounts = {};
     let closed = 0;
     incidentsSnap.docs.forEach((d) => {
       const data = d.data();
+      const typeLabel = TYPE_LABELS[data.type] || data.type || "ไม่ระบุ";
       if (data.status === "CLOSED") {
         closed += 1;
+        closedTypeCounts[typeLabel] = (closedTypeCounts[typeLabel] || 0) + 1;
         return;
       }
       if (levels[data.level] !== undefined) {
         levels[data.level] += 1;
       }
-      const typeLabel = TYPE_LABELS[data.type] || data.type || "ไม่ระบุ";
       typeCounts[typeLabel] = (typeCounts[typeLabel] || 0) + 1;
       const village = data.village || "ไม่ระบุ";
       villageCounts[village] = (villageCounts[village] || 0) + 1;
@@ -65,6 +67,9 @@ export async function GET() {
         .sort((a, b) => b.count - a.count),
       villageCounts: Object.entries(villageCounts)
         .map(([village, count]) => ({ village, count }))
+        .sort((a, b) => b.count - a.count),
+      closedTypeCounts: Object.entries(closedTypeCounts)
+        .map(([type, count]) => ({ type, count }))
         .sort((a, b) => b.count - a.count),
     });
   } catch (error) {
