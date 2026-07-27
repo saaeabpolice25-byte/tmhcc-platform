@@ -6,6 +6,7 @@ import { getFirestore, doc, getDoc, updateDoc, arrayUnion, serverTimestamp, coll
 import { ensureServerAuth } from "@/firebase/serverAuth";
 import { advanceSopChain } from "@/services/sopService";
 import { sendTaskNotification } from "@/services/notifyService";
+import { formatDateTime } from "@/services/aarService";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAxFBGjS9VB8H6bd5I_b7R25eLZIm4YZss",
@@ -27,6 +28,20 @@ const verifySignature = (rawBody, signatureHeader) => {
   const receivedBuf = Buffer.from(signatureHeader);
   if (expectedBuf.length !== receivedBuf.length) return false;
   return crypto.timingSafeEqual(expectedBuf, receivedBuf);
+};
+
+const replyMessage = async (replyToken, text) => {
+  const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!channelAccessToken || !replyToken) return;
+  try {
+    await fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${channelAccessToken}` },
+      body: JSON.stringify({ replyToken, messages: [{ type: "text", text }] }),
+    });
+  } catch (error) {
+    console.error("LINE reply error:", error);
+  }
 };
 
 const fetchActorName = async (source) => {
@@ -58,11 +73,25 @@ const handlePostback = async (event, origin) => {
   if (!taskSnap.exists()) return;
 
   const task = taskSnap.data();
-  if (task.status === "COMPLETED") return; // กันกดซ้ำ
+  if (task.status === "COMPLETED") {
+    // กันกดซ้ำ — แจ้งกลับในกลุ่มว่าใครกดไปแล้วเมื่อไร กันสับสนว่าปุ่มไม่ทำงาน
+    await replyMessage(
+      event.replyToken,
+      `⚠️ ภารกิจนี้มีผู้ดำเนินการแล้ว\nโดย: ${task.completedBy || "ไม่ทราบชื่อ"}\nเมื่อ: ${formatDateTime(task.completedAt) || "-"}`
+    );
+    return;
+  }
 
   // กันกรณีเหตุการณ์ถูกปิด (สร้างสรุป AAR) ไปแล้ว แต่ข้อความเก่าในกลุ่มยังมีปุ่มค้างอยู่
   const incidentSnap = await getDocs(query(collection(db, "incidents"), where("id", "==", task.incidentId), limit(1)));
-  if (!incidentSnap.empty && incidentSnap.docs[0].data().status === "CLOSED") return;
+  if (!incidentSnap.empty && incidentSnap.docs[0].data().status === "CLOSED") {
+    const incidentData = incidentSnap.docs[0].data();
+    await replyMessage(
+      event.replyToken,
+      `⚠️ เหตุการณ์นี้ถูกปิดไปแล้ว\nโดย: ${incidentData.closedBy || "ไม่ทราบชื่อ"}\nเมื่อ: ${formatDateTime(incidentData.closedAt) || "-"}`
+    );
+    return;
+  }
 
   const actor = await fetchActorName(event.source);
   const now = new Date();
