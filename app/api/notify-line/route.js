@@ -126,12 +126,31 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { unitCode, idToken, internalSecret } = body;
+    const { taskId, idToken, internalSecret } = body;
 
     const authorized = await verifyCaller(idToken, internalSecret);
     if (!authorized) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+
+    if (!taskId) {
+      return NextResponse.json({ success: false, error: "ไม่พบรหัสภารกิจ" }, { status: 400 });
+    }
+
+    // ดึงข้อมูล task/incident ตัวจริงจาก Firestore ด้วย taskId แทนการเชื่อ title/level/village/patientName ฯลฯ
+    // ที่ผู้เรียกส่งมาเองตรงๆ — ผู้ใช้ที่ล็อกอินแล้ว (ซึ่งเรียก endpoint นี้ได้ตามปกติในงานประจำทุก role)
+    // จะได้ไม่สามารถปลอมแปลงข้อความที่ส่งเข้ากลุ่ม LINE จริงของหน่วยอื่นได้
+    const taskSnap = await adminDb.collection("tasks").doc(taskId).get();
+    if (!taskSnap.exists) {
+      return NextResponse.json({ success: false, error: "ไม่พบภารกิจนี้" }, { status: 404 });
+    }
+    const taskData = taskSnap.data();
+
+    const incidentQuery = await adminDb.collection("incidents").where("id", "==", taskData.incidentId).limit(1).get();
+    if (incidentQuery.empty) {
+      return NextResponse.json({ success: false, error: "ไม่พบเหตุการณ์นี้" }, { status: 404 });
+    }
+    const incidentData = incidentQuery.docs[0].data();
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     if (!channelAccessToken) {
@@ -140,15 +159,28 @@ export async function POST(request) {
     }
 
     // อ่าน Group ID ของหน่วยงานผ่าน Admin SDK (bypass rules ได้ ไม่ต้องพึ่ง public-read บน units อีกต่อไป)
-    const unitSnap = await adminDb.collection("units").doc(unitCode).get();
+    const unitSnap = await adminDb.collection("units").doc(taskData.unitCode).get();
     const unitData = unitSnap.exists ? unitSnap.data() : null;
 
     if (!unitData || !unitData.active || !unitData.lineGroupId) {
-      console.warn(`หน่วย ${unitCode} ยังไม่มี LINE Group ID หรือปิดใช้งานอยู่ — ข้ามการแจ้งเตือน`);
+      console.warn(`หน่วย ${taskData.unitCode} ยังไม่มี LINE Group ID หรือปิดใช้งานอยู่ — ข้ามการแจ้งเตือน`);
       return NextResponse.json({ success: true, skipped: true });
     }
 
-    const message = buildFlexMessage(body);
+    const message = buildFlexMessage({
+      incidentCode: taskData.incidentId,
+      type: incidentData.type,
+      level: incidentData.level,
+      village: incidentData.village,
+      title: incidentData.title,
+      patientName: incidentData.patientName,
+      psychHistory: incidentData.psychHistory,
+      location: incidentData.location,
+      taskId,
+      unitCode: taskData.unitCode,
+      unit: taskData.unit,
+      task: taskData.task,
+    });
 
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",

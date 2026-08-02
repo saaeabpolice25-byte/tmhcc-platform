@@ -72,13 +72,26 @@ export async function POST(request) {
       if (!uid) return NextResponse.json({ success: false, error: "ไม่พบรหัสผู้ใช้งาน" }, { status: 400 });
 
       await adminDb.collection("users").doc(uid).delete();
+      let authDeleteFailed = false;
       try {
         await adminAuth.deleteUser(uid);
-      } catch {
-        // รายชื่อเก่าก่อนอัปเดตนี้อาจไม่มีบัญชี Auth คู่กันอยู่แล้ว ข้ามได้
+      } catch (error) {
+        if (error.code === "auth/user-not-found") {
+          // รายชื่อเก่าก่อนอัปเดตนี้อาจไม่มีบัญชี Auth คู่กันอยู่แล้ว ข้ามได้ตามปกติ
+        } else {
+          // error อื่น (เช่น เครือข่าย/สิทธิ์ Admin SDK) ต้อง log ไว้และแจ้งกลับ ไม่ใช่กลืนแล้วบอกว่าสำเร็จเฉยๆ
+          // เพราะถ้าลบบัญชี Auth ไม่สำเร็จจริง คนนั้นจะยัง login เข้าระบบได้อยู่ทั้งที่ Admin คิดว่าลบไปแล้ว
+          console.error(`ลบบัญชี Auth ของ uid=${uid} ไม่สำเร็จ:`, error);
+          authDeleteFailed = true;
+        }
       }
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        warning: authDeleteFailed
+          ? "ลบข้อมูลออกจากระบบแล้ว แต่ลบบัญชี Login ไม่สำเร็จ (อาจยัง login เข้าใช้งานได้อยู่) กรุณาลองลบอีกครั้งหรือแจ้งผู้ดูแลระบบ"
+          : undefined,
+      });
     }
 
     return NextResponse.json({ success: false, error: "ไม่รู้จักคำสั่งนี้" }, { status: 400 });

@@ -18,25 +18,12 @@ export const sendTaskNotification = async (incident, task, baseUrl = "", interna
       idToken = await auth.currentUser.getIdToken();
     }
 
+    // ส่งแค่ taskId ไปให้ /api/notify-line ดึงข้อมูล task/incident ตัวจริงจาก Firestore เอง
+    // แทนการส่ง title/level/village/patientName ฯลฯ ไปตรงๆ — กันไม่ให้ผู้เรียกปลอมแปลงข้อความที่จะส่งเข้า LINE ได้
     const response = await fetch(`${baseUrl}/api/notify-line`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        idToken,
-        internalSecret,
-        incidentCode: incident.id,
-        type: incident.type,
-        level: incident.level,
-        village: incident.village,
-        title: incident.title,
-        patientName: incident.patientName || "",
-        psychHistory: incident.psychHistory || "",
-        location: incident.location || null,
-        taskId: task.taskId,
-        unitCode: task.unitCode,
-        unit: task.unit,
-        task: task.task,
-      }),
+      body: JSON.stringify({ idToken, internalSecret, taskId: task.taskId }),
     });
 
     const result = await response.json().catch(() => ({}));

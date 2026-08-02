@@ -88,7 +88,11 @@ export default function UsersPage() {
     setDeletingId(id);
     const result = await callManageMember({ action: "delete", uid: id });
     setDeletingId(null);
-    if (!result.success) alert("ลบไม่สำเร็จ: " + result.error);
+    if (!result.success) {
+      alert("ลบไม่สำเร็จ: " + result.error);
+    } else if (result.warning) {
+      alert(result.warning);
+    }
   };
 
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
