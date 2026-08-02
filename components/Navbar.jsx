@@ -5,18 +5,36 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/firebase/config";
 import { logoutUser } from "@/firebase/auth";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
     return () => unsubscribe();
   }, []);
+
+  // เช็ค role=ADMIN เพื่อโชว์เมนู "จัดการสมาชิก" เฉพาะบัญชีที่มีสิทธิ์เข้าหน้านั้นได้จริง
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        setIsAdmin(snap.exists() && snap.data().role === "ADMIN");
+      } catch {
+        setIsAdmin(false);
+      }
+    })();
+  }, [user]);
 
   // หน้าสถานะสาธารณะ (/status) ไม่ต้องมี navbar เลย เพราะเปิดให้คนภายนอกดูโดยไม่ต้อง login
   if (pathname === "/status") return null;
@@ -26,6 +44,7 @@ export default function Navbar() {
     { href: "/incidents", label: "🚨 เปิดเหตุ" },
     { href: "/sop", label: "📋 ติดตาม SOP" },
     { href: "/status", label: "📡 สถานะสาธารณะ" },
+    ...(isAdmin ? [{ href: "/users", label: "⚙️ จัดการสมาชิก" }] : []),
   ];
 
   const handleLogout = async () => {
