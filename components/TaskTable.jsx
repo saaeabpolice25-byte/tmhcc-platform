@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/firebase/config";
 import { collection, onSnapshot, getDocs, query, where, limit, updateDoc, doc, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
+import { useUserRole } from "@/firebase/useUserRole";
 import { advanceSopChain } from "@/services/sopService";
 import { sendTaskNotification } from "@/services/notifyService";
 
@@ -14,6 +15,9 @@ const UNIT_FILTERS = ["ALL", "ผู้ใหญ่บ้าน", "อสม.", 
 // ถ้าไม่ส่งมา จะแสดงภารกิจทั้งหมดในระบบ พร้อมตัวกรองตามหน่วยงาน (ใช้ในหน้า /sop)
 export default function TaskTable({ incidentId }) {
   const user = useRequireAuth();
+  const role = useUserRole(user);
+  // แต่ละหน่วยกดยืนยันได้เฉพาะภารกิจของหน่วยตัวเองเท่านั้น กดแทนหน่วยอื่นไม่ได้ — Admin จัดการแทนได้ทุกหน่วย
+  const canActOnTask = (task) => role === "ADMIN" || role === task.unitCode;
   const [tasks, setTasks] = useState([]);
   const [closedIncidentIds, setClosedIncidentIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -74,6 +78,10 @@ export default function TaskTable({ incidentId }) {
   const handleUpdateStatus = async (task, newStatus) => {
     if (task.status === "COMPLETED" || closedIncidentIds.has(task.incidentId)) {
       alert("ภารกิจนี้เสร็จสิ้นแล้วหรือเหตุการณ์นี้ถูกปิดไปแล้ว ไม่สามารถแก้ไขสถานะซ้ำได้");
+      return;
+    }
+    if (!canActOnTask(task)) {
+      alert(`เฉพาะหน่วย ${task.unit} เท่านั้นที่ดำเนินการภารกิจนี้ได้`);
       return;
     }
     try {
@@ -182,7 +190,13 @@ export default function TaskTable({ incidentId }) {
                     </span>
                   </td>
                   <td className="p-3 sm:p-4 text-center space-x-2">
-                    {t.status !== "COMPLETED" && !closedIncidentIds.has(t.incidentId) ? (
+                    {t.status === "COMPLETED" || closedIncidentIds.has(t.incidentId) ? (
+                      <span className="text-xs text-slate-400">
+                        {t.status === "COMPLETED"
+                          ? `เสร็จสิ้นแล้ว${t.completedBy ? ` โดย ${t.completedBy}` : ""}`
+                          : "ปิดเหตุแล้ว — ไม่รับดำเนินการเพิ่ม"}
+                      </span>
+                    ) : canActOnTask(t) ? (
                       <>
                         {t.status !== "IN_PROGRESS" && (
                           <button
@@ -200,11 +214,7 @@ export default function TaskTable({ incidentId }) {
                         </button>
                       </>
                     ) : (
-                      <span className="text-xs text-slate-400">
-                        {t.status === "COMPLETED"
-                          ? `เสร็จสิ้นแล้ว${t.completedBy ? ` โดย ${t.completedBy}` : ""}`
-                          : "ปิดเหตุแล้ว — ไม่รับดำเนินการเพิ่ม"}
-                      </span>
+                      <span className="text-xs text-slate-400">เฉพาะหน่วย {t.unit} เท่านั้นที่ดำเนินการได้</span>
                     )}
                   </td>
                 </tr>
