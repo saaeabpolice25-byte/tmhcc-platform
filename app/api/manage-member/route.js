@@ -59,6 +59,7 @@ export async function POST(request) {
       const newUser = await adminAuth.createUser({ email, password, displayName: name });
       await adminDb.collection("users").doc(newUser.uid).set({
         name,
+        email,
         role: role || "VHV",
         village: village || "",
         createdAt: new Date().toISOString(),

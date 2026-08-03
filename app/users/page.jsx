@@ -249,6 +249,7 @@ export default function UsersPage() {
               <thead>
                 <tr className="border-b bg-slate-100/60 text-xs font-semibold text-slate-600 uppercase">
                   <th className="p-3 sm:p-4">ชื่อ - นามสกุล</th>
+                  <th className="p-3 sm:p-4">อีเมล</th>
                   <th className="p-3 sm:p-4">บทบาท (Role)</th>
                   <th className="p-3 sm:p-4">พื้นที่</th>
                   <th className="p-4 text-center">จัดการ</th>
@@ -257,7 +258,7 @@ export default function UsersPage() {
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="p-6 text-center text-slate-400">ยังไม่มีข้อมูลผู้ใช้งาน</td>
+                    <td colSpan="5" className="p-6 text-center text-slate-400">ยังไม่มีข้อมูลผู้ใช้งาน</td>
                   </tr>
                 ) : (
                   users.map((u) =>
@@ -272,6 +273,7 @@ export default function UsersPage() {
                             className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500"
                           />
                         </td>
+                        <td className="p-3 sm:p-4 text-slate-400">{u.email || "-"}</td>
                         <td className="p-3 sm:p-4">
                           <select
                             value={editRole}
@@ -314,6 +316,7 @@ export default function UsersPage() {
                         <td className="p-4 font-medium text-slate-800">
                           {u.name}{u.id === user.uid ? " (คุณ)" : ""}
                         </td>
+                        <td className="p-3 sm:p-4 text-slate-500">{u.email || "-"}</td>
                         <td className="p-3 sm:p-4">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             u.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
