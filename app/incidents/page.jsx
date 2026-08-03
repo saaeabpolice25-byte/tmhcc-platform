@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createIncident } from "@/services/incidentService";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
+import { useUserRole } from "@/firebase/useUserRole";
 
 const incidentTypes = [
   { id: "SUICIDE_RISK", label: "เสี่ยงฆ่าตัวตาย", defaultTitle: "ผู้มีภาวะเสี่ยงฆ่าตัวตาย" },
@@ -24,6 +25,7 @@ const psychHistoryOptions = [
 // ประเภท -> ชื่อผู้ป่วย -> รายละเอียด -> ระดับ -> หมู่บ้าน -> แนบตำแหน่ง -> ส่ง
 export default function IncidentsPage() {
   const user = useRequireAuth();
+  const role = useUserRole(user);
   const router = useRouter();
   const [selectedType, setSelectedType] = useState("SUICIDE_RISK");
   const [patientName, setPatientName] = useState("");
@@ -92,6 +94,16 @@ export default function IncidentsPage() {
   };
 
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
+  if (role === undefined) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์...</div>;
+  if (role !== "VILLAGE_HEAD" && role !== "ADMIN") {
+    return (
+      <div className="p-6 max-w-lg mx-auto">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+          หน้านี้จำกัดให้เฉพาะผู้ใหญ่บ้านและผู้ดูแลระบบ (Admin) เท่านั้นที่เปิดเหตุฉุกเฉินได้
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">

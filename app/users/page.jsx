@@ -6,6 +6,30 @@ import { db, auth } from "@/firebase/config";
 import { collection, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
 
+// ใช้ unitCode ชุดเดียวกับ services/unitService.js (UNIT_DEFINITIONS) เพื่อให้บทบาทของบุคลากร
+// ตรงกับหน่วยงานในโซ่ SOP จริงทั้งหมด ไม่ใช่แค่ 3 แบบเดิม
+const ROLE_OPTIONS = [
+  { value: "VILLAGE_HEAD", label: "ผู้ใหญ่บ้าน" },
+  { value: "VHV", label: "อสม." },
+  { value: "HEALTH_CENTER", label: "รพ.สต." },
+  { value: "HOSPITAL", label: "โรงพยาบาล" },
+  { value: "EMS", label: "EMS" },
+  { value: "POLICE", label: "ตำรวจ" },
+  { value: "ADMIN", label: "ผู้บริหาร/Admin" },
+];
+
+const ROLE_LABEL = Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, r.label]));
+
+const ROLE_BADGE_COLOR = {
+  ADMIN: "bg-purple-100 text-purple-700",
+  VILLAGE_HEAD: "bg-amber-100 text-amber-700",
+  HEALTH_CENTER: "bg-emerald-100 text-emerald-700",
+  HOSPITAL: "bg-emerald-100 text-emerald-700",
+  EMS: "bg-rose-100 text-rose-700",
+  POLICE: "bg-indigo-100 text-indigo-700",
+  VHV: "bg-blue-100 text-blue-700",
+};
+
 export default function UsersPage() {
   const user = useRequireAuth();
   const [isAdmin, setIsAdmin] = useState(null); // null = กำลังตรวจสอบ, true/false = ผลตรวจ
@@ -186,9 +210,9 @@ export default function UsersPage() {
                 onChange={(e) => setRole(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500 bg-white"
               >
-                <option value="VHV">อสม. (สำรวจ/เฝ้าระวัง)</option>
-                <option value="HOSPITAL">รพ.สต. (ประเมิน/รักษา)</option>
-                <option value="ADMIN">ผู้บริหาร / Admin</option>
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -291,9 +315,9 @@ export default function UsersPage() {
                             onChange={(e) => setEditRole(e.target.value)}
                             className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500 bg-white"
                           >
-                            <option value="VHV">อสม.</option>
-                            <option value="HOSPITAL">รพ.สต.</option>
-                            <option value="ADMIN">ผู้บริหาร/Admin</option>
+                            {ROLE_OPTIONS.map((r) => (
+                              <option key={r.value} value={r.value}>{r.label}</option>
+                            ))}
                           </select>
                         </td>
                         <td className="p-3 sm:p-4">
@@ -329,11 +353,8 @@ export default function UsersPage() {
                         </td>
                         <td className="p-3 sm:p-4 text-slate-500">{u.email || "-"}</td>
                         <td className="p-3 sm:p-4">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            u.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
-                            u.role === "HOSPITAL" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-                          }`}>
-                            {u.role === "ADMIN" ? "ผู้บริหาร/Admin" : u.role === "HOSPITAL" ? "เจ้าหน้าที่ รพ.สต." : "อสม."}
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${ROLE_BADGE_COLOR[u.role] || "bg-slate-100 text-slate-600"}`}>
+                            {ROLE_LABEL[u.role] || u.role || "ไม่ระบุ"}
                           </span>
                         </td>
                         <td className="p-3 sm:p-4">{u.village}</td>

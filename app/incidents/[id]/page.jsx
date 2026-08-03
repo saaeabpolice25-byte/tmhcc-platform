@@ -4,12 +4,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db, auth } from "@/firebase/config";
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import TaskTable from "@/components/TaskTable";
 import { createConditionalTask } from "@/services/sopService";
 import { closeIncident, formatDateTime } from "@/services/aarService";
 import { sendTaskNotification } from "@/services/notifyService";
 import { useRequireAuth } from "@/firebase/useRequireAuth";
+import { useUserRole } from "@/firebase/useUserRole";
 
 const getActorName = () => {
   if (typeof window === "undefined") return "ไม่ระบุชื่อ";
@@ -32,6 +33,10 @@ const PSYCH_HISTORY_LABEL = {
 
 export default function IncidentDetailPage() {
   const user = useRequireAuth();
+  const role = useUserRole(user);
+  const isAdmin = role === "ADMIN";
+  // เฉพาะผู้ใหญ่บ้านและ Admin เท่านั้นที่ปิดเหตุได้ — หน่วยอื่นในโซ่ SOP ยืนยันงานของตัวเองผ่าน TaskTable ได้ตามปกติ
+  const canCloseIncident = role === "VILLAGE_HEAD" || role === "ADMIN";
   const router = useRouter();
   const { id } = useParams();
   const [incident, setIncident] = useState(null);
@@ -40,21 +45,6 @@ export default function IncidentDetailPage() {
   const [closing, setClosing] = useState(false);
   const [callingPolice, setCallingPolice] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // เฉพาะบัญชี role=ADMIN เท่านั้นที่เห็นปุ่มลบเคส
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        setIsAdmin(snap.exists() && snap.data().role === "ADMIN");
-      } catch (error) {
-        console.error("Error checking admin role:", error);
-        setIsAdmin(false);
-      }
-    })();
-  }, [user]);
 
   // onSnapshot แทน getDoc ครั้งเดียว เพื่อให้เห็นสถานะ/AAR อัปเดตสดทันทีที่มีการเปลี่ยนแปลง
   // (เช่น โซ่ SOP ขยับไปหน่วยถัดไป หรือถูกปิดเหตุจากอีกเครื่อง) โดยไม่ต้อง refresh หน้าเอง
@@ -203,13 +193,15 @@ export default function IncidentDetailPage() {
             >
               {callingPolice ? "กำลังแจ้ง..." : "🚓 แจ้งตำรวจ (กรณีจำเป็น)"}
             </button>
-            <button
-              onClick={handleClose}
-              disabled={closing}
-              className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition disabled:bg-red-300"
-            >
-              {closing ? "กำลังปิดเหตุ..." : "✓ ปิดเหตุและสร้างสรุป AAR"}
-            </button>
+            {canCloseIncident && (
+              <button
+                onClick={handleClose}
+                disabled={closing}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition disabled:bg-red-300"
+              >
+                {closing ? "กำลังปิดเหตุ..." : "✓ ปิดเหตุและสร้างสรุป AAR"}
+              </button>
+            )}
           </div>
         )}
 
