@@ -69,21 +69,22 @@ export async function POST(request) {
     }
 
     if (action === "update") {
-      const { uid, name, role, village } = body;
+      const { uid, name, role, village, email } = body;
       if (!uid) return NextResponse.json({ success: false, error: "ไม่พบรหัสผู้ใช้งาน" }, { status: 400 });
       if (!name) return NextResponse.json({ success: false, error: "กรุณากรอกชื่อ" }, { status: 400 });
+      if (!email) return NextResponse.json({ success: false, error: "กรุณากรอกอีเมล" }, { status: 400 });
+
+      // อัปเดต Firebase Auth ก่อน (ชื่อที่แสดง + อีเมล login) แล้วค่อย sync ไปที่ Firestore
+      // ถ้าอีเมลซ้ำกับบัญชีอื่นจะ throw auth/email-already-exists ออกไปให้ catch ชั้นนอกจัดการ —
+      // ตั้งใจไม่ wrap แยก try/catch เพื่อไม่ให้ Firestore กับ Auth ค้างไม่ตรงกันเหมือน bug เดิมที่เคยแก้ไปแล้วในฝั่งลบ
+      await adminAuth.updateUser(uid, { displayName: name, email });
 
       await adminDb.collection("users").doc(uid).update({
         name,
+        email,
         role: role || "VHV",
         village: village || "",
       });
-      // sync ชื่อไปที่ Firebase Auth ด้วย ไม่ให้ displayName ค้างเป็นค่าเก่า
-      try {
-        await adminAuth.updateUser(uid, { displayName: name });
-      } catch (error) {
-        console.error(`อัปเดต displayName ของ uid=${uid} ไม่สำเร็จ:`, error);
-      }
 
       return NextResponse.json({ success: true });
     }

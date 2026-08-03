@@ -20,6 +20,7 @@ export default function UsersPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("VHV");
   const [editVillage, setEditVillage] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
@@ -104,6 +105,7 @@ export default function UsersPage() {
   const startEdit = (u) => {
     setEditingId(u.id);
     setEditName(u.name || "");
+    setEditEmail(u.email || "");
     setEditRole(u.role || "VHV");
     setEditVillage(u.village || "");
   };
@@ -114,8 +116,9 @@ export default function UsersPage() {
 
   const handleSaveEdit = async (id) => {
     if (!editName) return alert("กรุณากรอกชื่อ");
+    if (!editEmail) return alert("กรุณากรอกอีเมล");
     setSavingEdit(true);
-    const result = await callManageMember({ action: "update", uid: id, name: editName, role: editRole, village: editVillage });
+    const result = await callManageMember({ action: "update", uid: id, name: editName, email: editEmail, role: editRole, village: editVillage });
     setSavingEdit(false);
     if (result.success) {
       setEditingId(null);
@@ -273,7 +276,15 @@ export default function UsersPage() {
                             className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500"
                           />
                         </td>
-                        <td className="p-3 sm:p-4 text-slate-400">{u.email || "-"}</td>
+                        <td className="p-3 sm:p-4">
+                          <input
+                            type="email"
+                            autoComplete="off"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500"
+                          />
+                        </td>
                         <td className="p-3 sm:p-4">
                           <select
                             value={editRole}
