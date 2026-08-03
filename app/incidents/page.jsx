@@ -96,7 +96,7 @@ export default function IncidentsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-md mx-auto">
+    <div className="p-4 sm:p-6 max-w-md md:max-w-2xl mx-auto">
       <header className="mb-5 text-center">
         <h1 className="text-lg sm:text-xl font-bold text-slate-800">🚨 เปิดเหตุฉุกเฉิน</h1>
         <p className="text-xs text-slate-500 mt-1">รับแจ้งเหตุและคัดกรองเบื้องต้น — กรอกให้ครบเพื่อแจ้งเตือนหน่วยที่เกี่ยวข้องทันที</p>

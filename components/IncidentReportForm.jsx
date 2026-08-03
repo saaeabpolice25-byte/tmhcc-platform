@@ -59,10 +59,13 @@ export default function IncidentReportForm({
   const { type, patientName, psychHistory, title, level, village, location } = values;
 
   return (
-    <form onSubmit={onSubmit} className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
-      <div>
+    <form
+      onSubmit={onSubmit}
+      className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-5 md:gap-y-5 md:items-start"
+    >
+      <div className="md:col-span-2">
         <label className={FIELD_LABEL}>ประเภทเหตุการณ์</label>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {INCIDENT_TYPES.map((item) => (
             <ChoiceButton key={item.id} selected={type === item.id} onClick={() => onTypeChange(item)}>
               {item.label}
@@ -83,17 +86,6 @@ export default function IncidentReportForm({
       </div>
 
       <div>
-        <label className={FIELD_LABEL}>ประวัติการรักษาทางจิตเวช</label>
-        <div className="grid grid-cols-1 gap-2">
-          {PSYCH_HISTORY_OPTIONS.map((item) => (
-            <ChoiceButton key={item.id} selected={psychHistory === item.id} onClick={() => onFieldChange("psychHistory", item.id)}>
-              {item.label}
-            </ChoiceButton>
-          ))}
-        </div>
-      </div>
-
-      <div>
         <label className={FIELD_LABEL}>หัวข้อ/รายละเอียดเคส</label>
         <input
           type="text"
@@ -104,7 +96,18 @@ export default function IncidentReportForm({
         />
       </div>
 
-      <div>
+      <div className="md:col-span-2">
+        <label className={FIELD_LABEL}>ประวัติการรักษาทางจิตเวช</label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {PSYCH_HISTORY_OPTIONS.map((item) => (
+            <ChoiceButton key={item.id} selected={psychHistory === item.id} onClick={() => onFieldChange("psychHistory", item.id)}>
+              {item.label}
+            </ChoiceButton>
+          ))}
+        </div>
+      </div>
+
+      <div className="md:col-span-2">
         <label className={FIELD_LABEL}>ระดับความรุนแรง</label>
         <div className="grid grid-cols-3 gap-2.5">
           {LEVEL_OPTIONS.map((item) => (
@@ -131,6 +134,7 @@ export default function IncidentReportForm({
       </div>
 
       <div>
+        <label className={`${FIELD_LABEL} hidden md:block md:invisible`}>ตำแหน่ง</label>
         <button
           type="button"
           onClick={onAttachLocation}
@@ -147,7 +151,7 @@ export default function IncidentReportForm({
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition shadow-md disabled:bg-red-300"
+        className="md:col-span-2 w-full py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition shadow-md disabled:bg-red-300"
       >
         {loading ? "กำลังส่งข้อมูล..." : "🚨 เปิดเหตุฉุกเฉิน"}
       </button>
