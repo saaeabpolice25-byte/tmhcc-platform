@@ -67,6 +67,37 @@ export async function POST(request) {
       return NextResponse.json({ success: true, uid: newUser.uid });
     }
 
+    if (action === "update") {
+      const { uid, name, role, village } = body;
+      if (!uid) return NextResponse.json({ success: false, error: "ไม่พบรหัสผู้ใช้งาน" }, { status: 400 });
+      if (!name) return NextResponse.json({ success: false, error: "กรุณากรอกชื่อ" }, { status: 400 });
+
+      await adminDb.collection("users").doc(uid).update({
+        name,
+        role: role || "VHV",
+        village: village || "",
+      });
+      // sync ชื่อไปที่ Firebase Auth ด้วย ไม่ให้ displayName ค้างเป็นค่าเก่า
+      try {
+        await adminAuth.updateUser(uid, { displayName: name });
+      } catch (error) {
+        console.error(`อัปเดต displayName ของ uid=${uid} ไม่สำเร็จ:`, error);
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "reset-password") {
+      const { uid, password } = body;
+      if (!uid) return NextResponse.json({ success: false, error: "ไม่พบรหัสผู้ใช้งาน" }, { status: 400 });
+      if (!password || password.length < 6) {
+        return NextResponse.json({ success: false, error: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" }, { status: 400 });
+      }
+
+      await adminAuth.updateUser(uid, { password });
+      return NextResponse.json({ success: true });
+    }
+
     if (action === "delete") {
       const { uid } = body;
       if (!uid) return NextResponse.json({ success: false, error: "ไม่พบรหัสผู้ใช้งาน" }, { status: 400 });

@@ -18,6 +18,12 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("VHV");
+  const [editVillage, setEditVillage] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [resettingId, setResettingId] = useState(null);
 
   // เฉพาะบัญชี role=ADMIN เท่านั้นที่เข้าหน้านี้ได้
   useEffect(() => {
@@ -95,6 +101,46 @@ export default function UsersPage() {
     }
   };
 
+  const startEdit = (u) => {
+    setEditingId(u.id);
+    setEditName(u.name || "");
+    setEditRole(u.role || "VHV");
+    setEditVillage(u.village || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveEdit = async (id) => {
+    if (!editName) return alert("กรุณากรอกชื่อ");
+    setSavingEdit(true);
+    const result = await callManageMember({ action: "update", uid: id, name: editName, role: editRole, village: editVillage });
+    setSavingEdit(false);
+    if (result.success) {
+      setEditingId(null);
+    } else {
+      alert("บันทึกไม่สำเร็จ: " + result.error);
+    }
+  };
+
+  const handleResetPassword = async (u) => {
+    const newPassword = prompt(`ตั้งรหัสผ่านใหม่สำหรับ "${u.name}" (อย่างน้อย 6 ตัวอักษร)`);
+    if (!newPassword) return; // กดยกเลิก หรือไม่กรอกอะไรเลย
+    if (newPassword.length < 6) {
+      alert("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      return;
+    }
+    setResettingId(u.id);
+    const result = await callManageMember({ action: "reset-password", uid: u.id, password: newPassword });
+    setResettingId(null);
+    if (result.success) {
+      alert(`ตั้งรหัสผ่านใหม่สำเร็จ — แจ้งรหัสผ่านนี้ให้ "${u.name}" ทราบเพื่อใช้ล็อกอินครั้งถัดไป`);
+    } else {
+      alert("ตั้งรหัสผ่านใหม่ไม่สำเร็จ: " + result.error);
+    }
+  };
+
   if (!user) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์การเข้าใช้งาน...</div>;
   if (isAdmin === null) return <div className="p-6 text-slate-500">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</div>;
   if (!isAdmin) {
@@ -123,6 +169,7 @@ export default function UsersPage() {
               <label className="block text-xs font-semibold text-slate-600 mb-1">ชื่อ -นามสกุล</label>
               <input
                 type="text"
+                autoComplete="off"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="เช่น สมชาย ใจดี"
@@ -156,6 +203,7 @@ export default function UsersPage() {
               <input
                 type="email"
                 required
+                autoComplete="off"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@tmhcc.go.th"
@@ -167,6 +215,7 @@ export default function UsersPage() {
               <input
                 type="text"
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="อย่างน้อย 6 ตัวอักษร"
@@ -211,31 +260,94 @@ export default function UsersPage() {
                     <td colSpan="4" className="p-6 text-center text-slate-400">ยังไม่มีข้อมูลผู้ใช้งาน</td>
                   </tr>
                 ) : (
-                  users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50/50">
-                      <td className="p-4 font-medium text-slate-800">
-                        {u.name}{u.id === user.uid ? " (คุณ)" : ""}
-                      </td>
-                      <td className="p-3 sm:p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          u.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
-                          u.role === "HOSPITAL" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-                        }`}>
-                          {u.role === "ADMIN" ? "ผู้บริหาร/Admin" : u.role === "HOSPITAL" ? "เจ้าหน้าที่ รพ.สต." : "อสม."}
-                        </span>
-                      </td>
-                      <td className="p-3 sm:p-4">{u.village}</td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => handleDeleteUser(u.id)}
-                          disabled={deletingId === u.id || u.id === user.uid}
-                          className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                        >
-                          {deletingId === u.id ? "กำลังลบ..." : "ลบ"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  users.map((u) =>
+                    editingId === u.id ? (
+                      <tr key={u.id} className="bg-blue-50/40">
+                        <td className="p-3 sm:p-4">
+                          <input
+                            type="text"
+                            autoComplete="off"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="p-3 sm:p-4">
+                          <select
+                            value={editRole}
+                            onChange={(e) => setEditRole(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500 bg-white"
+                          >
+                            <option value="VHV">อสม.</option>
+                            <option value="HOSPITAL">รพ.สต.</option>
+                            <option value="ADMIN">ผู้บริหาร/Admin</option>
+                          </select>
+                        </td>
+                        <td className="p-3 sm:p-4">
+                          <input
+                            type="text"
+                            autoComplete="off"
+                            value={editVillage}
+                            onChange={(e) => setEditVillage(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-1.5 text-sm outline-none focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="p-4 text-center space-x-2 whitespace-nowrap">
+                          <button
+                            onClick={() => handleSaveEdit(u.id)}
+                            disabled={savingEdit}
+                            className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition disabled:opacity-40"
+                          >
+                            {savingEdit ? "กำลังบันทึก..." : "บันทึก"}
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            disabled={savingEdit}
+                            className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition"
+                          >
+                            ยกเลิก
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={u.id} className="hover:bg-slate-50/50">
+                        <td className="p-4 font-medium text-slate-800">
+                          {u.name}{u.id === user.uid ? " (คุณ)" : ""}
+                        </td>
+                        <td className="p-3 sm:p-4">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            u.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
+                            u.role === "HOSPITAL" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {u.role === "ADMIN" ? "ผู้บริหาร/Admin" : u.role === "HOSPITAL" ? "เจ้าหน้าที่ รพ.สต." : "อสม."}
+                          </span>
+                        </td>
+                        <td className="p-3 sm:p-4">{u.village}</td>
+                        <td className="p-4 text-center space-x-2 whitespace-nowrap">
+                          <button
+                            onClick={() => startEdit(u)}
+                            className="px-3 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg text-xs font-bold transition"
+                          >
+                            แก้ไข
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(u)}
+                            disabled={resettingId === u.id}
+                            className="px-3 py-1 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-xs font-bold transition disabled:opacity-40"
+                          >
+                            {resettingId === u.id ? "กำลังตั้ง..." : "เปลี่ยนรหัสผ่าน"}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            disabled={deletingId === u.id || u.id === user.uid}
+                            className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold transition disabled:opacity-40"
+                          >
+                            {deletingId === u.id ? "กำลังลบ..." : "ลบ"}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  )
                 )}
               </tbody>
             </table>
